@@ -39,6 +39,15 @@ export class AuthService {
     return this.http.post<void>(`${this.baseUrl}/resend-verification`, { email });
   }
 
+  /** Requests a password-reset email. Always succeeds, even for unknown addresses. */
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/reset-password`, { token, newPassword });
+  }
+
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http
       .post<AuthResponse>(`${this.baseUrl}/login`, request)

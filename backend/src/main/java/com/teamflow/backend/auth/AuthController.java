@@ -1,10 +1,12 @@
 package com.teamflow.backend.auth;
 
 import com.teamflow.backend.auth.dto.AuthResponse;
+import com.teamflow.backend.auth.dto.ForgotPasswordRequest;
 import com.teamflow.backend.auth.dto.LoginRequest;
 import com.teamflow.backend.auth.dto.RegisterRequest;
 import com.teamflow.backend.auth.dto.RegistrationResponse;
 import com.teamflow.backend.auth.dto.ResendVerificationRequest;
+import com.teamflow.backend.auth.dto.ResetPasswordRequest;
 import com.teamflow.backend.auth.dto.VerifyEmailRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -44,6 +47,18 @@ public class AuthController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
         authService.resendVerification(request);
+    }
+
+    /** Always returns 202 so callers cannot tell whether the email is registered. */
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
     }
 
     /**

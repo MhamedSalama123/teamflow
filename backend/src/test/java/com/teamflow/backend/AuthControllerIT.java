@@ -198,6 +198,73 @@ class AuthControllerIT {
         verify("ivan@example.com", secondCode, status().isOk());
     }
 
+    private String resetTokenFor(String email) {
+        return userRepository.findByEmail(email).orElseThrow().getResetToken();
+    }
+
+    @Test
+    void forgotPasswordStoresAResetToken() throws Exception {
+        register("laura@example.com", "laura", "password123");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"laura@example.com"}"""))
+                .andExpect(status().isAccepted());
+
+        assertThat(resetTokenFor("laura@example.com")).isNotBlank();
+    }
+
+    @Test
+    void forgotPasswordForUnknownEmailStillReturns202() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"ghost@example.com"}"""))
+                .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void resetPasswordChangesPasswordAndIsSingleUse() throws Exception {
+        register("mike@example.com", "mike", "password123");
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"mike@example.com"}"""))
+                .andExpect(status().isAccepted());
+        String token = resetTokenFor("mike@example.com");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","newPassword":"newpassword456"}""".formatted(token)))
+                .andExpect(status().isOk());
+
+        // The reset also verifies the email, so login with the new password succeeds.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"mike@example.com","password":"newpassword456"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken", notNullValue()));
+
+        // The token cannot be used a second time.
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","newPassword":"anotherpass789"}""".formatted(token)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void resetPasswordRejectsInvalidToken() throws Exception {
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"does-not-exist","newPassword":"newpassword456"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     void googleCallbackCreatesVerifiedUserAndReturnsTokens() throws Exception {
         given(googleOAuthClient.exchangeCodeForUser("auth-code"))

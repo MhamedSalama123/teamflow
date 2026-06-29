@@ -52,6 +52,12 @@ public class User {
     @Column(name = "verification_locked_until")
     private Instant verificationLockedUntil;
 
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expires_at")
+    private Instant resetTokenExpiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

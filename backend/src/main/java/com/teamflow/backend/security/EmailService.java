@@ -46,4 +46,20 @@ public class EmailService {
                 .formatted(code));
         mailSender.send(message);
     }
+
+    public void sendPasswordResetLink(String to, String resetLink) {
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null || mailHost == null || mailHost.isBlank()) {
+            log.warn("Mail is not configured; password reset link for {} is {}", to, resetLink);
+            return;
+        }
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject("Reset your TeamFlow password");
+        message.setText("Reset your TeamFlow password using this link: %s. It expires in 30 minutes. "
+                .formatted(resetLink) + "If you did not request this, you can ignore this email.");
+        mailSender.send(message);
+    }
 }

@@ -66,6 +66,24 @@ describe('AuthService', () => {
     req.flush(null);
   });
 
+  it('forgotPassword posts the email', () => {
+    service.forgotPassword('a@b.com').subscribe();
+
+    const req = httpMock.expectOne('/api/auth/forgot-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email: 'a@b.com' });
+    req.flush(null);
+  });
+
+  it('resetPassword posts the token and new password', () => {
+    service.resetPassword('reset-token', 'newpassword456').subscribe();
+
+    const req = httpMock.expectOne('/api/auth/reset-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ token: 'reset-token', newPassword: 'newpassword456' });
+    req.flush(null);
+  });
+
   it('posts to login and stores the returned tokens', () => {
     service.login({ email: 'a@b.com', password: 'password123' }).subscribe();
 
