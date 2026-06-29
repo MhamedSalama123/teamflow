@@ -5,7 +5,8 @@
  * redirect URI is derived from the current origin and must be registered in Google Cloud as
  * well as matching the backend's GOOGLE_REDIRECT_URI.
  */
-export const GOOGLE_CLIENT_ID = 'REPLACE_WITH_GOOGLE_CLIENT_ID';
+export const GOOGLE_CLIENT_ID =
+  '1025057911520-0ede0s968df42p8h5fkr8fajod9gju5k.apps.googleusercontent.com';
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
 export function googleRedirectUri(): string {

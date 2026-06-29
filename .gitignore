@@ -1,2 +1,7 @@
 # IDE
 .idea/
+
+# Local secrets / environment
+.env
+.env.*
+!.env.example
