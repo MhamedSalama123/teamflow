@@ -1,0 +1,15 @@
+<header class="flex items-center justify-between bg-slate-800 px-6 py-4 text-white">
+  <a routerLink="/" class="text-xl font-bold">TeamFlow</a>
+  <nav class="flex gap-4">
+    @if (auth.isAuthenticated()) {
+      <button type="button" class="hover:underline" (click)="auth.logout()">Log out</button>
+    } @else {
+      <a routerLink="/login" class="hover:underline">Log in</a>
+      <a routerLink="/register" class="hover:underline">Register</a>
+    }
+  </nav>
+</header>
+
+<main class="p-6">
+  <router-outlet />
+</main>
