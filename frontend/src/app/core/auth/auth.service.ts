@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { AuthResponse, LoginRequest, RegisterRequest } from './auth.models';
+import { buildGoogleAuthUrl } from './google-oauth.config';
 
 const ACCESS_TOKEN_KEY = 'teamflow.accessToken';
 const REFRESH_TOKEN_KEY = 'teamflow.refreshToken';
@@ -25,6 +26,18 @@ export class AuthService {
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http
       .post<AuthResponse>(`${this.baseUrl}/login`, request)
+      .pipe(tap((response) => this.storeTokens(response)));
+  }
+
+  /** Redirects the browser to Google's consent screen to begin the OAuth2 flow. */
+  startGoogleLogin(): void {
+    window.location.href = buildGoogleAuthUrl();
+  }
+
+  /** Exchanges the authorization code returned by Google for our own JWT pair. */
+  loginWithGoogle(code: string): Observable<AuthResponse> {
+    return this.http
+      .get<AuthResponse>(`${this.baseUrl}/google/callback`, { params: { code } })
       .pipe(tap((response) => this.storeTokens(response)));
   }
 

@@ -1,0 +1,8 @@
+<div class="mx-auto max-w-sm text-center">
+  @if (error()) {
+    <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+    <a routerLink="/login" class="mt-4 inline-block text-blue-600 hover:underline">Back to login</a>
+  } @else {
+    <p class="text-slate-600">Signing you in with Google…</p>
+  }
+</div>

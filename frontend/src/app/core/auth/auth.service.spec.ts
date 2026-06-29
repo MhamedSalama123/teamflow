@@ -64,4 +64,16 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
     expect(localStorage.getItem('teamflow.accessToken')).toBeNull();
   });
+
+  it('exchanges a google authorization code and stores the returned tokens', () => {
+    service.loginWithGoogle('auth-code').subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === '/api/auth/google/callback');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('code')).toBe('auth-code');
+    req.flush(TOKENS);
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.getAccessToken()).toBe('access-token');
+  });
 });

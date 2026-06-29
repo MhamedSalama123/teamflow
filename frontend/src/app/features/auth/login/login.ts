@@ -40,4 +40,8 @@ export class Login {
       },
     });
   }
+
+  protected signInWithGoogle(): void {
+    this.auth.startGoogleLogin();
+  }
 }

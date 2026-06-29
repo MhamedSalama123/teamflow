@@ -9,6 +9,11 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () => import('./features/auth/register/register').then((m) => m.Register),
   },
+  {
+    path: 'auth/google/callback',
+    loadComponent: () =>
+      import('./features/auth/google-callback/google-callback').then((m) => m.GoogleCallback),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: '**', redirectTo: 'login' },
 ];
