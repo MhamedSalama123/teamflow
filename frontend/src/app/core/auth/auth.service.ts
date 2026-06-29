@@ -1,7 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { AuthResponse, LoginRequest, RegisterRequest } from './auth.models';
+import {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  RegistrationResponse,
+  VerifyEmailRequest,
+} from './auth.models';
 import { buildGoogleAuthUrl } from './google-oauth.config';
 
 const ACCESS_TOKEN_KEY = 'teamflow.accessToken';
@@ -17,10 +23,20 @@ export class AuthService {
   /** Reactive flag the UI can read to switch between authenticated/anonymous views. */
   readonly isAuthenticated = computed(() => this.accessToken() !== null);
 
-  register(request: RegisterRequest): Observable<AuthResponse> {
+  /** Creates the account; no tokens are returned until the email is verified. */
+  register(request: RegisterRequest): Observable<RegistrationResponse> {
+    return this.http.post<RegistrationResponse>(`${this.baseUrl}/register`, request);
+  }
+
+  /** Confirms the emailed code and, on success, logs the user in. */
+  verifyEmail(request: VerifyEmailRequest): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>(`${this.baseUrl}/register`, request)
+      .post<AuthResponse>(`${this.baseUrl}/verify-email`, request)
       .pipe(tap((response) => this.storeTokens(response)));
+  }
+
+  resendVerification(email: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/resend-verification`, { email });
   }
 
   login(request: LoginRequest): Observable<AuthResponse> {

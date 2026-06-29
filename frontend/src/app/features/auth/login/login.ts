@@ -28,9 +28,15 @@ export class Login {
     }
     this.submitting.set(true);
     this.error.set(null);
+    const email = this.form.getRawValue().email;
     this.auth.login(this.form.getRawValue()).subscribe({
       next: () => this.router.navigateByUrl('/'),
       error: (err) => {
+        if (err.status === 403) {
+          // Account exists but the email isn't verified yet — send them to verify.
+          this.router.navigate(['/verify-email'], { queryParams: { email } });
+          return;
+        }
         this.error.set(
           err.status === 401
             ? 'Invalid email or password.'

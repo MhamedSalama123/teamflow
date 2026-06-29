@@ -14,3 +14,13 @@ export interface AuthResponse {
   refreshToken: string;
   tokenType: string;
 }
+
+export interface RegistrationResponse {
+  email: string;
+  message: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}

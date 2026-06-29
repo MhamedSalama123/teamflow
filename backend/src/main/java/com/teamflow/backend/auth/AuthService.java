@@ -3,6 +3,9 @@ package com.teamflow.backend.auth;
 import com.teamflow.backend.auth.dto.AuthResponse;
 import com.teamflow.backend.auth.dto.LoginRequest;
 import com.teamflow.backend.auth.dto.RegisterRequest;
+import com.teamflow.backend.auth.dto.RegistrationResponse;
+import com.teamflow.backend.auth.dto.ResendVerificationRequest;
+import com.teamflow.backend.auth.dto.VerifyEmailRequest;
 import com.teamflow.backend.security.GoogleOAuthClient;
 import com.teamflow.backend.security.GoogleUserInfo;
 import com.teamflow.backend.security.JwtService;
@@ -22,9 +25,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final GoogleOAuthClient googleOAuthClient;
+    private final EmailVerificationService emailVerificationService;
 
+    /**
+     * Creates an unverified account and emails a verification code. No tokens are issued here;
+     * the caller must verify the email (see {@link #verifyEmail}) before they can log in.
+     */
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public RegistrationResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyUsedException(request.email());
         }
@@ -32,9 +40,10 @@ public class AuthService {
                 .email(request.email())
                 .username(request.username())
                 .password(passwordEncoder.encode(request.password()))
+                .emailVerified(false)
                 .build();
-        userRepository.save(user);
-        return issueTokens(user);
+        emailVerificationService.startVerification(user);
+        return RegistrationResponse.verificationSent(user.getEmail());
     }
 
     @Transactional(readOnly = true)
@@ -44,19 +53,37 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
+        if (!user.isEmailVerified()) {
+            throw new EmailNotVerifiedException();
+        }
         return issueTokens(user);
+    }
+
+    /** Validates the emailed code and, on success, logs the user in by issuing tokens. */
+    @Transactional
+    public AuthResponse verifyEmail(VerifyEmailRequest request) {
+        User user = emailVerificationService.verify(request.email(), request.code());
+        return issueTokens(user);
+    }
+
+    public void resendVerification(ResendVerificationRequest request) {
+        emailVerificationService.resend(request.email());
     }
 
     /**
      * Completes a Google sign-in: exchanges the authorization code for the user's profile and
-     * links it to an existing account by email, creating one on first sign-in. Either way the
-     * caller receives the same JWT pair as a username/password login.
+     * links it to an existing account by email, creating one on first sign-in. Google has
+     * already verified the email, so the account is marked verified either way.
      */
     @Transactional
     public AuthResponse loginWithGoogle(String code) {
         GoogleUserInfo userInfo = googleOAuthClient.exchangeCodeForUser(code);
         User user = userRepository.findByEmail(userInfo.email())
                 .orElseGet(() -> registerGoogleUser(userInfo));
+        if (!user.isEmailVerified()) {
+            user.setEmailVerified(true);
+            userRepository.save(user);
+        }
         return issueTokens(user);
     }
 
@@ -67,6 +94,7 @@ public class AuthService {
                 // Google users authenticate via the provider, so set an unusable random
                 // password that satisfies the non-null column but matches nothing on login.
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .emailVerified(true)
                 .build();
         return userRepository.save(user);
     }

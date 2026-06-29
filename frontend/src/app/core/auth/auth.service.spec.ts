@@ -30,19 +30,40 @@ describe('AuthService', () => {
     expect(service.getAccessToken()).toBeNull();
   });
 
-  it('posts to register and stores the returned tokens', () => {
+  it('posts to register but does not authenticate until the email is verified', () => {
     const body = { email: 'a@b.com', username: 'alice', password: 'password123' };
-    service.register(body).subscribe();
+    let response: { email: string } | undefined;
+    service.register(body).subscribe((r) => (response = r));
 
     const req = httpMock.expectOne('/api/auth/register');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(body);
+    req.flush({ email: 'a@b.com', message: 'A verification code has been sent to your email.' });
+
+    expect(response?.email).toBe('a@b.com');
+    expect(service.isAuthenticated()).toBe(false);
+    expect(localStorage.getItem('teamflow.accessToken')).toBeNull();
+  });
+
+  it('verifyEmail posts the code and stores the returned tokens', () => {
+    service.verifyEmail({ email: 'a@b.com', code: '123456' }).subscribe();
+
+    const req = httpMock.expectOne('/api/auth/verify-email');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email: 'a@b.com', code: '123456' });
     req.flush(TOKENS);
 
-    expect(service.getAccessToken()).toBe('access-token');
     expect(service.isAuthenticated()).toBe(true);
-    expect(localStorage.getItem('teamflow.accessToken')).toBe('access-token');
-    expect(localStorage.getItem('teamflow.refreshToken')).toBe('refresh-token');
+    expect(service.getAccessToken()).toBe('access-token');
+  });
+
+  it('resendVerification posts the email', () => {
+    service.resendVerification('a@b.com').subscribe();
+
+    const req = httpMock.expectOne('/api/auth/resend-verification');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email: 'a@b.com' });
+    req.flush(null);
   });
 
   it('posts to login and stores the returned tokens', () => {

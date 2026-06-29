@@ -37,6 +37,21 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    @Column(name = "verification_code", length = 6)
+    private String verificationCode;
+
+    @Column(name = "verification_code_expires_at")
+    private Instant verificationCodeExpiresAt;
+
+    @Column(name = "verification_attempts", nullable = false)
+    private int verificationAttempts;
+
+    @Column(name = "verification_locked_until")
+    private Instant verificationLockedUntil;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

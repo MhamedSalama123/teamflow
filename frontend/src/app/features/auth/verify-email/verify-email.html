@@ -1,0 +1,54 @@
+<div class="mx-auto max-w-sm">
+  <h1 class="mb-2 text-2xl font-bold text-slate-800">Verify your email</h1>
+  <p class="mb-6 text-sm text-slate-600">
+    Enter the 6-digit code we sent to
+    <span class="font-medium">{{ email() || 'your email address' }}</span>.
+  </p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+    @if (error()) {
+      <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+    }
+
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium text-slate-700">Verification code</span>
+      <input
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        formControlName="code"
+        class="rounded border border-slate-300 px-3 py-2 text-center text-lg tracking-[0.5em] focus:border-blue-500 focus:outline-none"
+      />
+      @if (form.controls.code.touched && form.controls.code.invalid) {
+        <span class="text-xs text-red-600">Enter the 6-digit code.</span>
+      }
+    </label>
+
+    <button
+      type="submit"
+      [disabled]="submitting()"
+      class="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+    >
+      {{ submitting() ? 'Verifying…' : 'Verify' }}
+    </button>
+
+    <button
+      type="button"
+      (click)="resend()"
+      [disabled]="cooldown() > 0"
+      class="text-sm text-blue-600 hover:underline disabled:text-slate-400 disabled:no-underline"
+    >
+      @if (cooldown() > 0) {
+        Resend code in {{ cooldown() }}s
+      } @else {
+        Resend code
+      }
+    </button>
+
+    <p class="text-sm text-slate-600">
+      Wrong account?
+      <a routerLink="/register" class="text-blue-600 hover:underline">Start over</a>
+    </p>
+  </form>
+</div>

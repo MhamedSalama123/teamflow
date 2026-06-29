@@ -3,6 +3,9 @@ package com.teamflow.backend.auth;
 import com.teamflow.backend.auth.dto.AuthResponse;
 import com.teamflow.backend.auth.dto.LoginRequest;
 import com.teamflow.backend.auth.dto.RegisterRequest;
+import com.teamflow.backend.auth.dto.RegistrationResponse;
+import com.teamflow.backend.auth.dto.ResendVerificationRequest;
+import com.teamflow.backend.auth.dto.VerifyEmailRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,13 +26,24 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public RegistrationResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/verify-email")
+    public AuthResponse verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        return authService.verifyEmail(request);
+    }
+
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerification(request);
     }
 
     /**

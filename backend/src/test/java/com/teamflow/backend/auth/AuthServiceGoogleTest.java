@@ -31,6 +31,9 @@ class AuthServiceGoogleTest {
     @Mock
     private GoogleOAuthClient googleOAuthClient;
 
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtService jwtService =
             new JwtService("test-secret-key-that-is-at-least-32-bytes-long!!", 900_000L, 604_800_000L);
@@ -39,7 +42,8 @@ class AuthServiceGoogleTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, passwordEncoder, jwtService, googleOAuthClient);
+        authService = new AuthService(
+                userRepository, passwordEncoder, jwtService, googleOAuthClient, emailVerificationService);
     }
 
     @Test
@@ -47,15 +51,21 @@ class AuthServiceGoogleTest {
         when(googleOAuthClient.exchangeCodeForUser("code"))
                 .thenReturn(new GoogleUserInfo("alice@example.com", "Alice"));
         User existing = User.builder()
-                .id(1L).email("alice@example.com").username("alice").password("hash").build();
+                .id(1L).email("alice@example.com").username("alice").password("hash")
+                .emailVerified(false).build();
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AuthResponse response = authService.loginWithGoogle("code");
 
         assertThat(jwtService.isValidAccessToken(response.accessToken())).isTrue();
         assertThat(jwtService.extractSubject(response.accessToken())).isEqualTo("alice@example.com");
         assertThat(response.tokenType()).isEqualTo("Bearer");
-        verify(userRepository, never()).save(any());
+        // The existing account is reused (and marked verified by Google), never duplicated.
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue()).isSameAs(existing);
+        assertThat(existing.isEmailVerified()).isTrue();
     }
 
     @Test
@@ -73,6 +83,7 @@ class AuthServiceGoogleTest {
         assertThat(saved.getEmail()).isEqualTo("bob@example.com");
         assertThat(saved.getUsername()).isEqualTo("Bob Builder");
         assertThat(saved.getPassword()).isNotBlank().isNotEqualTo("bob@example.com");
+        assertThat(saved.isEmailVerified()).isTrue();
         assertThat(jwtService.isValidAccessToken(response.accessToken())).isTrue();
     }
 

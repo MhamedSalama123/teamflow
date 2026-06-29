@@ -29,8 +29,9 @@ export class Register {
     }
     this.submitting.set(true);
     this.error.set(null);
+    const email = this.form.getRawValue().email;
     this.auth.register(this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl('/'),
+      next: () => this.router.navigate(['/verify-email'], { queryParams: { email } }),
       error: (err) => {
         this.error.set(
           err.status === 409
