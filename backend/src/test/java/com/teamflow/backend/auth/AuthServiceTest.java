@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -36,6 +37,9 @@ class AuthServiceTest {
     @Mock
     private EmailVerificationService emailVerificationService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtService jwtService =
             new JwtService("test-secret-key-that-is-at-least-32-bytes-long!!", 900_000L, 604_800_000L);
@@ -45,7 +49,12 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(
-                userRepository, passwordEncoder, jwtService, googleOAuthClient, emailVerificationService);
+                userRepository,
+                passwordEncoder,
+                jwtService,
+                googleOAuthClient,
+                emailVerificationService,
+                eventPublisher);
     }
 
     private User verifiedUser(String email, String rawPassword) {

@@ -55,7 +55,13 @@ describe('WorkspaceService', () => {
   });
 
   it('loads a workspace detail', () => {
-    const detail: WorkspaceDetail = { id: 1, name: 'Acme', role: 'OWNER', members: [MEMBER] };
+    const detail: WorkspaceDetail = {
+      id: 1,
+      name: 'Acme',
+      role: 'OWNER',
+      members: [MEMBER],
+      pendingInvitations: [],
+    };
     service.detail(1).subscribe();
 
     const req = httpMock.expectOne('/api/workspaces/1');
@@ -88,6 +94,14 @@ describe('WorkspaceService', () => {
     service.removeMember(1, 2).subscribe();
 
     const req = httpMock.expectOne('/api/workspaces/1/members/2');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('cancels a pending invitation', () => {
+    service.cancelInvitation(1, 7).subscribe();
+
+    const req = httpMock.expectOne('/api/workspaces/1/invitations/7');
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });

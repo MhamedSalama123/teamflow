@@ -15,6 +15,7 @@ import com.teamflow.backend.notification.NotificationRepository;
 import com.teamflow.backend.notification.NotificationType;
 import com.teamflow.backend.security.EmailService;
 import com.teamflow.backend.user.UserRepository;
+import com.teamflow.backend.workspace.WorkspaceInvitationRepository;
 import com.teamflow.backend.workspace.WorkspaceMemberRepository;
 import com.teamflow.backend.workspace.WorkspaceMemberStatus;
 import com.teamflow.backend.workspace.WorkspaceRole;
@@ -45,6 +46,9 @@ class WorkspaceControllerIT {
     private WorkspaceMemberRepository memberRepository;
 
     @Autowired
+    private WorkspaceInvitationRepository invitationRepository;
+
+    @Autowired
     private NotificationRepository notificationRepository;
 
     @MockitoBean
@@ -53,6 +57,7 @@ class WorkspaceControllerIT {
     @BeforeEach
     void cleanUp() {
         memberRepository.deleteAll();
+        invitationRepository.deleteAll();
         notificationRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -153,16 +158,102 @@ class WorkspaceControllerIT {
     }
 
     @Test
-    void inviteRejectsUnknownEmail() throws Exception {
+    void inviteUnregisteredEmailStoresPendingInvitation() throws Exception {
         String owner = authenticate("owner@example.com");
         long ws = createWorkspace(owner, "Acme");
+
+        // An email with no account yet yields a pending invitation, not a member row.
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"newcomer@example.com"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status", is("INVITED")))
+                .andExpect(jsonPath("$.userId").doesNotExist())
+                .andExpect(jsonPath("$.email", is("newcomer@example.com")));
+
+        // It surfaces on the workspace detail under pendingInvitations, not members.
+        mockMvc.perform(get("/api/workspaces/{id}", ws).header(HttpHeaders.AUTHORIZATION, bearer(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.members", hasSize(1)))
+                .andExpect(jsonPath("$.pendingInvitations", hasSize(1)))
+                .andExpect(jsonPath("$.pendingInvitations[0].email", is("newcomer@example.com")));
+    }
+
+    @Test
+    void invitingSameUnregisteredEmailTwiceConflicts() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"newcomer@example.com"}"""))
+                .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
                         .header(HttpHeaders.AUTHORIZATION, bearer(owner))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"ghost@example.com"}"""))
-                .andExpect(status().isNotFound());
+                                {"email":"newcomer@example.com"}"""))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void pendingInvitationIsClaimedWhenInviteeRegisters() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"newcomer@example.com"}"""))
+                .andExpect(status().isCreated());
+
+        // The invitee registers and verifies: the pending invite becomes an invited membership
+        // plus an in-app notification, and the standalone pending invitation is consumed.
+        String invitee = authenticate("newcomer@example.com");
+
+        assertThat(memberRepository.findByWorkspaceIdAndUserId(ws, userId("newcomer@example.com")))
+                .get()
+                .satisfies(m -> assertThat(m.getStatus()).isEqualTo(WorkspaceMemberStatus.INVITED));
+        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(userId("newcomer@example.com")))
+                .singleElement()
+                .satisfies(n -> assertThat(n.getType()).isEqualTo(NotificationType.WORKSPACE_INVITATION));
+
+        // The invitee can accept through the normal flow and then sees the workspace.
+        mockMvc.perform(post("/api/workspaces/{id}/invite/accept", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(invitee)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/workspaces/me").header(HttpHeaders.AUTHORIZATION, bearer(invitee)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)));
+        mockMvc.perform(get("/api/workspaces/{id}", ws).header(HttpHeaders.AUTHORIZATION, bearer(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pendingInvitations", hasSize(0)));
+    }
+
+    @Test
+    void cancelPendingInvitationRemovesIt() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"newcomer@example.com"}"""))
+                .andExpect(status().isCreated());
+        long invitationId = invitationRepository
+                .findByWorkspaceIdOrderByCreatedAtAsc(ws).get(0).getId();
+
+        mockMvc.perform(delete("/api/workspaces/{id}/invitations/{invitationId}", ws, invitationId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/workspaces/{id}", ws).header(HttpHeaders.AUTHORIZATION, bearer(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pendingInvitations", hasSize(0)));
     }
 
     @Test

@@ -20,9 +20,17 @@ export interface WorkspaceMember {
   status: WorkspaceMemberStatus;
 }
 
+/** A pending invitation to an email address that has not registered yet. */
+export interface PendingInvitation {
+  id: number;
+  email: string;
+  role: WorkspaceRole;
+}
+
 export interface WorkspaceDetail {
   id: number;
   name: string;
   role: WorkspaceRole;
   members: WorkspaceMember[];
+  pendingInvitations: PendingInvitation[];
 }

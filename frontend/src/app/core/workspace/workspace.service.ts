@@ -36,6 +36,10 @@ export class WorkspaceService {
     return this.http.delete<void>(`${this.baseUrl}/${workspaceId}/members/${userId}`);
   }
 
+  cancelInvitation(workspaceId: number, invitationId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${workspaceId}/invitations/${invitationId}`);
+  }
+
   changeRole(
     workspaceId: number,
     userId: number,

@@ -37,6 +37,7 @@ const DETAIL: WorkspaceDetail = {
       status: 'ACTIVE',
     },
   ],
+  pendingInvitations: [{ id: 9, email: 'newcomer@example.com', role: 'MEMBER' }],
 };
 
 describe('Workspaces', () => {
@@ -47,6 +48,7 @@ describe('Workspaces', () => {
     invite: ReturnType<typeof vi.fn>;
     removeMember: ReturnType<typeof vi.fn>;
     changeRole: ReturnType<typeof vi.fn>;
+    cancelInvitation: ReturnType<typeof vi.fn>;
   };
 
   function setup() {
@@ -67,6 +69,7 @@ describe('Workspaces', () => {
       invite: vi.fn(() => of(DETAIL.members[1])),
       removeMember: vi.fn(() => of(undefined)),
       changeRole: vi.fn(() => of(DETAIL.members[1])),
+      cancelInvitation: vi.fn(() => of(undefined)),
     };
   });
 
@@ -124,5 +127,14 @@ describe('Workspaces', () => {
     component.changeRole(DETAIL.members[1], 'ADMIN');
 
     expect(serviceStub.changeRole).toHaveBeenCalledWith(1, 2, 'ADMIN');
+  });
+
+  it('cancels a pending invitation through the service', () => {
+    const component = setup().componentInstance as any;
+    component.select(1);
+
+    component.cancelInvitation(DETAIL.pendingInvitations[0]);
+
+    expect(serviceStub.cancelInvitation).toHaveBeenCalledWith(1, 9);
   });
 });

@@ -10,9 +10,11 @@ import com.teamflow.backend.security.GoogleOAuthClient;
 import com.teamflow.backend.security.GoogleUserInfo;
 import com.teamflow.backend.security.JwtService;
 import com.teamflow.backend.user.User;
+import com.teamflow.backend.user.UserRegisteredEvent;
 import com.teamflow.backend.user.UserRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final GoogleOAuthClient googleOAuthClient;
     private final EmailVerificationService emailVerificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Creates an unverified account and emails a verification code. No tokens are issued here;
@@ -43,6 +46,7 @@ public class AuthService {
                 .emailVerified(false)
                 .build();
         emailVerificationService.startVerification(user);
+        eventPublisher.publishEvent(new UserRegisteredEvent(user));
         return RegistrationResponse.verificationSent(user.getEmail());
     }
 
@@ -97,7 +101,9 @@ public class AuthService {
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .emailVerified(true)
                 .build();
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        eventPublisher.publishEvent(new UserRegisteredEvent(saved));
+        return saved;
     }
 
     private String resolveUsername(GoogleUserInfo userInfo) {

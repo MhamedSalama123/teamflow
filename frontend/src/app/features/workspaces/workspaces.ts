@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import {
+  PendingInvitation,
   Workspace,
   WorkspaceDetail,
   WorkspaceMember,
@@ -84,6 +85,18 @@ export class Workspaces implements OnInit {
     });
   }
 
+  protected cancelInvitation(invitation: PendingInvitation): void {
+    const detail = this.selected();
+    if (!detail) {
+      return;
+    }
+    this.reset();
+    this.workspaceService.cancelInvitation(detail.id, invitation.id).subscribe({
+      next: () => this.select(detail.id),
+      error: () => this.error.set('Could not cancel that invitation.'),
+    });
+  }
+
   protected removeMember(member: WorkspaceMember): void {
     const detail = this.selected();
     if (!detail) {
@@ -131,11 +144,8 @@ export class Workspaces implements OnInit {
   }
 
   private inviteError(status: number): string {
-    if (status === 404) {
-      return 'No TeamFlow user was found with that email.';
-    }
     if (status === 409) {
-      return 'That user is already a member or has a pending invitation.';
+      return 'That person is already a member or has a pending invitation.';
     }
     if (status === 403) {
       return 'You do not have permission to invite members.';

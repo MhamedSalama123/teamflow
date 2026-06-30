@@ -72,6 +72,13 @@ public class WorkspaceController {
         workspaceService.removeMember(authentication.getName(), id, userId);
     }
 
+    @DeleteMapping("/{id}/invitations/{invitationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelInvitation(
+            Authentication authentication, @PathVariable Long id, @PathVariable Long invitationId) {
+        workspaceService.cancelInvitation(authentication.getName(), id, invitationId);
+    }
+
     @PutMapping("/{id}/members/{userId}/role")
     public WorkspaceMemberResponse changeRole(
             Authentication authentication,

@@ -9,6 +9,7 @@ import com.teamflow.backend.user.UserRepository;
 import com.teamflow.backend.workspace.dto.ChangeRoleRequest;
 import com.teamflow.backend.workspace.dto.CreateWorkspaceRequest;
 import com.teamflow.backend.workspace.dto.InviteMemberRequest;
+import com.teamflow.backend.workspace.dto.PendingInvitationResponse;
 import com.teamflow.backend.workspace.dto.WorkspaceDetailResponse;
 import com.teamflow.backend.workspace.dto.WorkspaceMemberResponse;
 import com.teamflow.backend.workspace.dto.WorkspaceResponse;
@@ -23,6 +24,7 @@ public class WorkspaceService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceInvitationRepository invitationRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
@@ -65,10 +67,19 @@ public class WorkspaceService {
                 memberRepository.findByWorkspaceIdOrderByCreatedAtAsc(workspaceId).stream()
                         .map(WorkspaceMemberResponse::from)
                         .toList();
-        return WorkspaceDetailResponse.of(membership.getWorkspace(), membership.getRole(), members);
+        List<PendingInvitationResponse> pending =
+                invitationRepository.findByWorkspaceIdOrderByCreatedAtAsc(workspaceId).stream()
+                        .map(PendingInvitationResponse::from)
+                        .toList();
+        return WorkspaceDetailResponse.of(
+                membership.getWorkspace(), membership.getRole(), members, pending);
     }
 
-    /** Invites an existing user by email, emailing them and raising an in-app notification. */
+    /**
+     * Invites someone by email. If the email belongs to a registered user they become an invited
+     * member with an in-app notification; otherwise a pending invitation is stored and claimed when
+     * that email later registers. Either way an invitation email is sent.
+     */
     @Transactional
     public WorkspaceMemberResponse invite(
             String actorEmail, Long workspaceId, InviteMemberRequest request) {
@@ -76,28 +87,80 @@ public class WorkspaceService {
         Workspace workspace = requireWorkspace(workspaceId);
         requireManager(workspaceId, actor.getId());
 
-        User invitee = userRepository.findByEmailAndDeletedAtIsNull(request.email())
-                .orElseThrow(UserNotFoundException::new);
-        if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, invitee.getId())) {
+        String email = request.email().trim();
+        return userRepository.findByEmailAndDeletedAtIsNull(email)
+                .map(invitee -> inviteRegistered(workspace, actor, invitee))
+                .orElseGet(() -> inviteUnregistered(workspace, actor, email));
+    }
+
+    private WorkspaceMemberResponse inviteRegistered(Workspace workspace, User actor, User invitee) {
+        if (memberRepository.existsByWorkspaceIdAndUserId(workspace.getId(), invitee.getId())) {
             throw new DuplicateWorkspaceMemberException();
         }
-
         WorkspaceMember invitation = memberRepository.save(WorkspaceMember.builder()
                 .workspace(workspace)
                 .user(invitee)
                 .role(WorkspaceRole.MEMBER)
                 .status(WorkspaceMemberStatus.INVITED)
                 .build());
-
         emailService.sendWorkspaceInvitation(invitee.getEmail(), displayName(actor), workspace.getName());
         notificationService.notify(
                 invitee,
                 NotificationType.WORKSPACE_INVITATION,
-                "%s invited you to join the workspace '%s'."
-                        .formatted(displayName(actor), workspace.getName()),
+                invitationMessage(actor, workspace),
                 workspace.getId());
-
         return WorkspaceMemberResponse.from(invitation);
+    }
+
+    private WorkspaceMemberResponse inviteUnregistered(Workspace workspace, User actor, String email) {
+        if (invitationRepository.existsByWorkspaceIdAndEmailIgnoreCase(workspace.getId(), email)) {
+            throw new DuplicateWorkspaceMemberException();
+        }
+        WorkspaceInvitation invitation = invitationRepository.save(WorkspaceInvitation.builder()
+                .workspace(workspace)
+                .email(email)
+                .role(WorkspaceRole.MEMBER)
+                .invitedBy(actor)
+                .build());
+        emailService.sendWorkspaceInvitation(email, displayName(actor), workspace.getName());
+        return WorkspaceMemberResponse.pending(invitation);
+    }
+
+    /** Cancels a pending email invitation. Only owners/admins may do this. */
+    @Transactional
+    public void cancelInvitation(String actorEmail, Long workspaceId, Long invitationId) {
+        User actor = requireActiveUser(actorEmail);
+        requireWorkspace(workspaceId);
+        requireManager(workspaceId, actor.getId());
+        WorkspaceInvitation invitation = invitationRepository
+                .findByIdAndWorkspaceId(invitationId, workspaceId)
+                .orElseThrow(InvitationNotFoundException::new);
+        invitationRepository.delete(invitation);
+    }
+
+    /**
+     * Converts any pending email invitations for a freshly registered user into invited memberships
+     * (with notifications). Invoked from the registration flow via {@code UserRegisteredEvent}.
+     */
+    @Transactional
+    public void claimPendingInvitations(User user) {
+        for (WorkspaceInvitation invitation : invitationRepository.findByEmailIgnoreCase(user.getEmail())) {
+            Workspace workspace = invitation.getWorkspace();
+            if (!memberRepository.existsByWorkspaceIdAndUserId(workspace.getId(), user.getId())) {
+                memberRepository.save(WorkspaceMember.builder()
+                        .workspace(workspace)
+                        .user(user)
+                        .role(invitation.getRole())
+                        .status(WorkspaceMemberStatus.INVITED)
+                        .build());
+                notificationService.notify(
+                        user,
+                        NotificationType.WORKSPACE_INVITATION,
+                        invitationMessage(invitation.getInvitedBy(), workspace),
+                        workspace.getId());
+            }
+            invitationRepository.delete(invitation);
+        }
     }
 
     /** Accepts the caller's pending invitation, turning it into an active membership. */
@@ -217,6 +280,14 @@ public class WorkspaceService {
     private User requireActiveUser(String email) {
         return userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(UserNotFoundException::new);
+    }
+
+    private static String invitationMessage(User inviter, Workspace workspace) {
+        if (inviter == null) {
+            return "You have been invited to join the workspace '%s'.".formatted(workspace.getName());
+        }
+        return "%s invited you to join the workspace '%s'."
+                .formatted(displayName(inviter), workspace.getName());
     }
 
     private static String displayName(User user) {
