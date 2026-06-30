@@ -164,6 +164,37 @@ describe('Projects', () => {
     expect(projectStub.updateTask).not.toHaveBeenCalled();
   });
 
+  it('edits a task, preserving status and assignee', () => {
+    const component = setup().componentInstance as any;
+    const task: Task = {
+      ...TASKS[1],
+      assignee: { id: 9, username: 'bob', fullName: 'Bob', photoUrl: null },
+    };
+
+    component.startEdit(task);
+    expect(component.editingTaskId()).toBe(task.id);
+    expect(component.editForm.getRawValue().title).toBe('Build');
+
+    component.editForm.patchValue({
+      title: 'Build v2',
+      description: 'Updated',
+      priority: 'LOW',
+      dueDate: '2026-09-01',
+    });
+    component.saveEdit(task);
+
+    expect(projectStub.updateTask).toHaveBeenCalledWith(1, 6, {
+      title: 'Build v2',
+      description: 'Updated',
+      status: 'IN_PROGRESS',
+      priority: 'LOW',
+      dueDate: '2026-09-01',
+      assigneeId: 9,
+      position: null,
+    });
+    expect(component.editingTaskId()).toBeNull();
+  });
+
   it('assigns through the assign endpoint and unassigns through update', () => {
     const component = setup().componentInstance as any;
 

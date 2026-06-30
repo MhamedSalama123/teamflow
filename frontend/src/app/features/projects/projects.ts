@@ -57,6 +57,14 @@ export class Projects implements OnInit {
     assigneeId: [''],
   });
 
+  protected readonly editingTaskId = signal<number | null>(null);
+  protected readonly editForm = this.fb.nonNullable.group({
+    title: ['', [Validators.required, Validators.maxLength(255)]],
+    description: ['', [Validators.maxLength(5000)]],
+    priority: ['MEDIUM' as TaskPriority],
+    dueDate: [''],
+  });
+
   ngOnInit(): void {
     this.workspaceService.myWorkspaces().subscribe({
       next: (list) => {
@@ -164,6 +172,46 @@ export class Projects implements OnInit {
       next: () => this.loadTasks(projectId),
       error: () => this.error.set('Could not delete the task.'),
     });
+  }
+
+  protected startEdit(task: Task): void {
+    this.editingTaskId.set(task.id);
+    this.editForm.setValue({
+      title: task.title,
+      description: task.description ?? '',
+      priority: task.priority,
+      dueDate: task.dueDate ?? '',
+    });
+  }
+
+  protected cancelEdit(): void {
+    this.editingTaskId.set(null);
+  }
+
+  protected saveEdit(task: Task): void {
+    const projectId = this.selectedProjectId();
+    if (projectId === null || this.editForm.invalid) {
+      return;
+    }
+    this.error.set(null);
+    const { title, description, priority, dueDate } = this.editForm.getRawValue();
+    this.projectService
+      .updateTask(projectId, task.id, {
+        title,
+        description: description || null,
+        status: task.status,
+        priority,
+        dueDate: dueDate || null,
+        assigneeId: task.assignee?.id ?? null,
+        position: null,
+      })
+      .subscribe({
+        next: () => {
+          this.editingTaskId.set(null);
+          this.loadTasks(projectId);
+        },
+        error: () => this.error.set('Could not update the task.'),
+      });
   }
 
   protected onAssigneeChange(task: Task, value: string): void {
