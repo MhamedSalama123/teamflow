@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Projects } from './projects';
 import { ProjectService } from '../../core/project/project.service';
+import { RealtimeService } from '../../core/realtime/realtime.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { Project, Task } from '../../core/project/project.models';
+import { Project, Task, TaskEvent } from '../../core/project/project.models';
 import { Workspace, WorkspaceDetail } from '../../core/workspace/workspace.models';
 
 const WORKSPACES: Workspace[] = [
@@ -79,6 +80,8 @@ describe('Projects', () => {
     deleteTask: Fn;
   };
   let workspaceStub: { myWorkspaces: Fn; detail: Fn };
+  let realtimeEvents: Subject<TaskEvent>;
+  let realtimeStub: { watchProject: Fn };
 
   function setup() {
     TestBed.configureTestingModule({
@@ -86,6 +89,7 @@ describe('Projects', () => {
       providers: [
         { provide: ProjectService, useValue: projectStub },
         { provide: WorkspaceService, useValue: workspaceStub },
+        { provide: RealtimeService, useValue: realtimeStub },
       ],
     });
     const fixture = TestBed.createComponent(Projects);
@@ -94,6 +98,8 @@ describe('Projects', () => {
   }
 
   beforeEach(() => {
+    realtimeEvents = new Subject<TaskEvent>();
+    realtimeStub = { watchProject: vi.fn(() => realtimeEvents.asObservable()) };
     projectStub = {
       listProjects: vi.fn(() => of(PROJECTS)),
       createProject: vi.fn(() => of(PROJECTS[0])),
@@ -119,6 +125,16 @@ describe('Projects', () => {
     // The pending (INVITED) member is filtered out of the assignee list.
     expect(component.members()).toHaveLength(1);
     expect(component.canManageProjects()).toBe(true);
+  });
+
+  it('subscribes to realtime task events and refreshes on a message', () => {
+    const component = setup().componentInstance as any;
+    expect(realtimeStub.watchProject).toHaveBeenCalledWith(1);
+    expect(projectStub.listTasks).toHaveBeenCalledTimes(1);
+
+    realtimeEvents.next({ type: 'UPDATED', taskId: 5 });
+
+    expect(projectStub.listTasks).toHaveBeenCalledTimes(2);
   });
 
   it('groups tasks into the right columns', () => {

@@ -26,7 +26,7 @@ Architecture notes for new work:
 - **Persistence**: Spring Data JPA + PostgreSQL. Schema changes go through **Flyway** migrations (`src/main/resources/db/migration/V*__*.sql`) — do not rely on Hibernate auto-DDL.
 - **Tests use Testcontainers Postgres**, not H2 — every integration test runs against real Postgres. Docker is required to run the test suite.
 - **Security**: Spring Security with OAuth2 client is on the classpath; expect auth to be required by default once a `SecurityFilterChain` is added.
-- **Realtime**: `spring-boot-starter-websocket` is present for WebSocket/STOMP features.
+- **Realtime**: STOMP-over-WebSocket is wired up (`com.teamflow.backend.realtime`). Clients connect to `/ws` (authenticated by a JWT in the STOMP `CONNECT` frame's `Authorization` header — the HTTP handshake is permitted in `SecurityConfig`) and subscribe to `/topic/projects/{projectId}` for live task events; `StompAuthChannelInterceptor` enforces workspace membership on `SUBSCRIBE`. `TaskService` broadcasts `TaskEvent`s via `TaskEventPublisher` after commit.
 - **Lombok** is enabled (annotation processor) — annotations like `@Getter`/`@RequiredArgsConstructor` are available.
 - Config lives in `src/main/resources/application.properties` (minimal today). DevTools is on for hot reload during `bootRun`.
 - Docker image: multi-stage `Dockerfile` builds with `gradle bootJar -x test` and runs on `eclipse-temurin:21-jre-alpine` as a non-root user, exposing 8080.

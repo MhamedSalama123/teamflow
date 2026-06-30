@@ -1,5 +1,6 @@
 package com.teamflow.backend.project;
 
+import com.teamflow.backend.project.TaskEvent.TaskEventType;
 import com.teamflow.backend.project.dto.AssignTaskRequest;
 import com.teamflow.backend.project.dto.CreateTaskRequest;
 import com.teamflow.backend.project.dto.TaskResponse;
@@ -21,6 +22,7 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final WorkspaceMembershipService membershipService;
+    private final TaskEventPublisher taskEventPublisher;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> list(String actorEmail, Long projectId) {
@@ -46,6 +48,7 @@ public class TaskService {
                 .assignee(assignee)
                 .position(position)
                 .build());
+        taskEventPublisher.publish(projectId, TaskEventType.CREATED, task.getId());
         return TaskResponse.from(task);
     }
 
@@ -66,13 +69,16 @@ public class TaskService {
         } else {
             taskRepository.save(task);
         }
+        taskEventPublisher.publish(projectId, TaskEventType.UPDATED, task.getId());
         return TaskResponse.from(task);
     }
 
     @Transactional
     public void delete(String actorEmail, Long projectId, Long taskId) {
         requireProjectForMember(actorEmail, projectId);
-        taskRepository.delete(requireTask(projectId, taskId));
+        Task task = requireTask(projectId, taskId);
+        taskRepository.delete(task);
+        taskEventPublisher.publish(projectId, TaskEventType.DELETED, task.getId());
     }
 
     @Transactional
@@ -81,7 +87,9 @@ public class TaskService {
         Project project = requireProjectForMember(actorEmail, projectId);
         Task task = requireTask(projectId, taskId);
         task.setAssignee(resolveAssignee(project, request.assigneeId()));
-        return TaskResponse.from(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+        taskEventPublisher.publish(projectId, TaskEventType.UPDATED, saved.getId());
+        return TaskResponse.from(saved);
     }
 
     /**

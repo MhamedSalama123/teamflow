@@ -26,7 +26,9 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/uploads/**").permitAll()
+                        // The STOMP handshake authenticates per-connection via the CONNECT frame
+                        // (see StompAuthChannelInterceptor), so the HTTP upgrade itself is permitted.
+                        .requestMatchers("/api/auth/**", "/uploads/**", "/ws/**").permitAll()
                         .anyRequest().authenticated())
                 // Return 401 (not the servlet default 403) when a request is unauthenticated, which is
                 // the correct status for a missing/invalid bearer token on this stateless JSON API.

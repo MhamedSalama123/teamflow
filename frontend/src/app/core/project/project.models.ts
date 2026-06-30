@@ -2,6 +2,14 @@ export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export type TaskEventType = 'CREATED' | 'UPDATED' | 'DELETED';
+
+/** Broadcast over WebSocket when a task in a project changes; a signal to refresh the board. */
+export interface TaskEvent {
+  type: TaskEventType;
+  taskId: number;
+}
+
 export interface Project {
   id: number;
   name: string;

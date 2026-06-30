@@ -1,7 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ProjectService } from '../../core/project/project.service';
 import { Project, Task, TaskPriority, TaskStatus } from '../../core/project/project.models';
+import { RealtimeService } from '../../core/realtime/realtime.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { Workspace, WorkspaceMember, WorkspaceRole } from '../../core/workspace/workspace.models';
 
@@ -17,10 +19,14 @@ const MANAGED_ROLES: WorkspaceRole[] = ['OWNER', 'ADMIN'];
   imports: [ReactiveFormsModule],
   templateUrl: './projects.html',
 })
-export class Projects implements OnInit {
+export class Projects implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly projectService = inject(ProjectService);
   private readonly workspaceService = inject(WorkspaceService);
+  private readonly realtime = inject(RealtimeService);
+
+  /** Live subscription to the selected project's task events. */
+  private realtimeSub: Subscription | null = null;
 
   protected readonly columns: Column[] = [
     { status: 'TODO', label: 'To Do' },
@@ -77,8 +83,13 @@ export class Projects implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    this.stopRealtime();
+  }
+
   protected selectWorkspace(workspaceId: number): void {
     this.error.set(null);
+    this.stopRealtime();
     this.selectedWorkspaceId.set(workspaceId);
     this.selectedProjectId.set(null);
     this.tasks.set([]);
@@ -103,6 +114,22 @@ export class Projects implements OnInit {
     this.error.set(null);
     this.selectedProjectId.set(projectId);
     this.loadTasks(projectId);
+    this.startRealtime(projectId);
+  }
+
+  /** Subscribes to live task events for the project, refreshing the board when they arrive. */
+  private startRealtime(projectId: number): void {
+    this.stopRealtime();
+    this.realtimeSub = this.realtime.watchProject(projectId).subscribe(() => {
+      if (this.selectedProjectId() === projectId) {
+        this.loadTasks(projectId);
+      }
+    });
+  }
+
+  private stopRealtime(): void {
+    this.realtimeSub?.unsubscribe();
+    this.realtimeSub = null;
   }
 
   protected createProject(): void {
