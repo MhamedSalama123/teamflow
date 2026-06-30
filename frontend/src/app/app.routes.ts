@@ -18,6 +18,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/workspaces/workspaces').then((m) => m.Workspaces),
   },
   {
+    path: 'projects',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/projects/projects').then((m) => m.Projects),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
   },

@@ -3,6 +3,7 @@
   <nav class="flex gap-4">
     @if (auth.isAuthenticated()) {
       <a routerLink="/workspaces" class="hover:underline">Workspaces</a>
+      <a routerLink="/projects" class="hover:underline">Projects</a>
       <a routerLink="/search" class="hover:underline">Search</a>
       <a routerLink="/profile" class="hover:underline">Profile</a>
       <button type="button" class="hover:underline" (click)="auth.logout()">Log out</button>

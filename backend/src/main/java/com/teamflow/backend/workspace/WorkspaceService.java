@@ -4,7 +4,6 @@ import com.teamflow.backend.notification.NotificationService;
 import com.teamflow.backend.notification.NotificationType;
 import com.teamflow.backend.security.EmailService;
 import com.teamflow.backend.user.User;
-import com.teamflow.backend.user.UserNotFoundException;
 import com.teamflow.backend.user.UserRepository;
 import com.teamflow.backend.workspace.dto.ChangeRoleRequest;
 import com.teamflow.backend.workspace.dto.CreateWorkspaceRequest;
@@ -25,6 +24,7 @@ public class WorkspaceService {
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceInvitationRepository invitationRepository;
+    private final WorkspaceMembershipService membershipService;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
@@ -260,19 +260,11 @@ public class WorkspaceService {
     }
 
     private WorkspaceMember requireManager(Long workspaceId, Long userId) {
-        WorkspaceMember membership = requireActiveMembership(workspaceId, userId);
-        if (membership.getRole() != WorkspaceRole.OWNER && membership.getRole() != WorkspaceRole.ADMIN) {
-            throw new WorkspaceAccessDeniedException("This action requires an owner or admin role.");
-        }
-        return membership;
+        return membershipService.requireManager(workspaceId, userId);
     }
 
     private WorkspaceMember requireActiveMembership(Long workspaceId, Long userId) {
-        return memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, userId)
-                .filter(m -> m.getStatus() == WorkspaceMemberStatus.ACTIVE)
-                .orElseThrow(() ->
-                        new WorkspaceAccessDeniedException("You are not a member of this workspace."));
+        return membershipService.requireActiveMembership(workspaceId, userId);
     }
 
     private WorkspaceMember requireMember(Long workspaceId, Long userId) {
@@ -292,8 +284,7 @@ public class WorkspaceService {
     }
 
     private User requireActiveUser(String email) {
-        return userRepository.findByEmailAndDeletedAtIsNull(email)
-                .orElseThrow(UserNotFoundException::new);
+        return membershipService.requireActiveUser(email);
     }
 
     private static String invitationMessage(User inviter, Workspace workspace) {
