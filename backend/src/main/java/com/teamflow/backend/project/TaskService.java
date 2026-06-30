@@ -1,5 +1,7 @@
 package com.teamflow.backend.project;
 
+import com.teamflow.backend.notification.NotificationService;
+import com.teamflow.backend.notification.NotificationType;
 import com.teamflow.backend.project.TaskEvent.TaskEventType;
 import com.teamflow.backend.project.dto.AssignTaskRequest;
 import com.teamflow.backend.project.dto.CreateTaskRequest;
@@ -7,6 +9,7 @@ import com.teamflow.backend.project.dto.TaskResponse;
 import com.teamflow.backend.project.dto.UpdateTaskRequest;
 import com.teamflow.backend.user.User;
 import com.teamflow.backend.user.UserRepository;
+import com.teamflow.backend.workspace.WorkspaceMember;
 import com.teamflow.backend.workspace.WorkspaceMembershipService;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +26,11 @@ public class TaskService {
     private final UserRepository userRepository;
     private final WorkspaceMembershipService membershipService;
     private final TaskEventPublisher taskEventPublisher;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> list(String actorEmail, Long projectId) {
-        requireProjectForMember(actorEmail, projectId);
+        requireProjectContext(actorEmail, projectId);
         return taskRepository.findByProjectIdOrderByStatusAscPositionAscIdAsc(projectId).stream()
                 .map(TaskResponse::from)
                 .toList();
@@ -35,7 +39,8 @@ public class TaskService {
     /** Creates a task in the TODO column, appended to the end of it. */
     @Transactional
     public TaskResponse create(String actorEmail, Long projectId, CreateTaskRequest request) {
-        Project project = requireProjectForMember(actorEmail, projectId);
+        ProjectContext context = requireProjectContext(actorEmail, projectId);
+        Project project = context.project();
         User assignee = resolveAssignee(project, request.assigneeId());
         int position = (int) taskRepository.countByProjectIdAndStatus(projectId, TaskStatus.TODO);
         Task task = taskRepository.save(Task.builder()
@@ -49,20 +54,24 @@ public class TaskService {
                 .position(position)
                 .build());
         taskEventPublisher.publish(projectId, TaskEventType.CREATED, task.getId());
+        notifyAssignment(context.actor(), project, task, null, assignee);
         return TaskResponse.from(task);
     }
 
     @Transactional
     public TaskResponse update(
             String actorEmail, Long projectId, Long taskId, UpdateTaskRequest request) {
-        Project project = requireProjectForMember(actorEmail, projectId);
+        ProjectContext context = requireProjectContext(actorEmail, projectId);
+        Project project = context.project();
         Task task = requireTask(projectId, taskId);
+        User previousAssignee = task.getAssignee();
 
         task.setTitle(request.title().trim());
         task.setDescription(blankToNull(request.description()));
         task.setPriority(request.priority());
         task.setDueDate(request.dueDate());
-        task.setAssignee(resolveAssignee(project, request.assigneeId()));
+        User newAssignee = resolveAssignee(project, request.assigneeId());
+        task.setAssignee(newAssignee);
 
         if (task.getStatus() != request.status() || request.position() != null) {
             moveTask(task, request.status(), request.position());
@@ -70,12 +79,13 @@ public class TaskService {
             taskRepository.save(task);
         }
         taskEventPublisher.publish(projectId, TaskEventType.UPDATED, task.getId());
+        notifyAssignment(context.actor(), project, task, previousAssignee, newAssignee);
         return TaskResponse.from(task);
     }
 
     @Transactional
     public void delete(String actorEmail, Long projectId, Long taskId) {
-        requireProjectForMember(actorEmail, projectId);
+        requireProjectContext(actorEmail, projectId);
         Task task = requireTask(projectId, taskId);
         taskRepository.delete(task);
         taskEventPublisher.publish(projectId, TaskEventType.DELETED, task.getId());
@@ -84,11 +94,15 @@ public class TaskService {
     @Transactional
     public TaskResponse assign(
             String actorEmail, Long projectId, Long taskId, AssignTaskRequest request) {
-        Project project = requireProjectForMember(actorEmail, projectId);
+        ProjectContext context = requireProjectContext(actorEmail, projectId);
+        Project project = context.project();
         Task task = requireTask(projectId, taskId);
-        task.setAssignee(resolveAssignee(project, request.assigneeId()));
+        User previousAssignee = task.getAssignee();
+        User newAssignee = resolveAssignee(project, request.assigneeId());
+        task.setAssignee(newAssignee);
         Task saved = taskRepository.save(task);
         taskEventPublisher.publish(projectId, TaskEventType.UPDATED, saved.getId());
+        notifyAssignment(context.actor(), project, saved, previousAssignee, newAssignee);
         return TaskResponse.from(saved);
     }
 
@@ -127,12 +141,34 @@ public class TaskService {
         }
     }
 
-    /** Loads the project and asserts the caller is an active member of its workspace. */
-    private Project requireProjectForMember(String actorEmail, Long projectId) {
+    /** The project plus the acting user, after asserting the caller is an active workspace member. */
+    private record ProjectContext(Project project, User actor) {}
+
+    private ProjectContext requireProjectContext(String actorEmail, Long projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(ProjectNotFoundException::new);
-        membershipService.requireActiveMembership(project.getWorkspace().getId(), actorEmail);
-        return project;
+        WorkspaceMember membership =
+                membershipService.requireActiveMembership(project.getWorkspace().getId(), actorEmail);
+        return new ProjectContext(project, membership.getUser());
+    }
+
+    /** Notifies the new assignee when a task is assigned to someone other than the actor. */
+    private void notifyAssignment(User actor, Project project, Task task, User previous, User next) {
+        if (next == null
+                || next.getId().equals(actor.getId())
+                || (previous != null && previous.getId().equals(next.getId()))) {
+            return;
+        }
+        String message = "%s assigned you the task '%s' in %s."
+                .formatted(displayName(actor), task.getTitle(), project.getName());
+        notificationService.notify(
+                next, NotificationType.TASK_ASSIGNED, message, project.getWorkspace().getId());
+    }
+
+    private static String displayName(User user) {
+        return (user.getFullName() != null && !user.getFullName().isBlank())
+                ? user.getFullName()
+                : user.getUsername();
     }
 
     private Task requireTask(Long projectId, Long taskId) {

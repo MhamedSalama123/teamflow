@@ -23,6 +23,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/projects/projects').then((m) => m.Projects),
   },
   {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/notifications/notifications').then((m) => m.Notifications),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
   },

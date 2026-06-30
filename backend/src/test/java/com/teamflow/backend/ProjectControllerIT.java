@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.teamflow.backend.notification.NotificationRepository;
+import com.teamflow.backend.notification.NotificationType;
 import com.teamflow.backend.project.TaskRepository;
 import com.teamflow.backend.project.TaskStatus;
 import com.teamflow.backend.security.EmailService;
@@ -39,6 +41,9 @@ class ProjectControllerIT {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @MockitoBean
     private EmailService emailService;
@@ -262,6 +267,54 @@ class ProjectControllerIT {
                 .andExpect(status().isNoContent());
 
         assertThat(taskRepository.findByIdAndProjectId(task, project)).isEmpty();
+    }
+
+    @Test
+    void assigningTaskToAnotherMemberNotifiesThem() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        String bob = joinWorkspace(owner, ws, "bob@example.com");
+        long project = createProject(owner, ws, "Website");
+        long task = createTask(owner, project, "Ship it");
+
+        mockMvc.perform(put("/api/projects/{id}/tasks/{tid}/assign", project, task)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assigneeId":%d}""".formatted(userId("bob@example.com"))))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(userId("bob@example.com")))
+                .filteredOn(n -> n.getType() == NotificationType.TASK_ASSIGNED)
+                .singleElement()
+                .satisfies(n -> {
+                    assertThat(n.getMessage()).contains("Ship it").contains("Website");
+                    assertThat(n.getWorkspaceId()).isEqualTo(ws);
+                    assertThat(n.isRead()).isFalse();
+                });
+
+        // The assignee can read it back through the notifications API.
+        mockMvc.perform(get("/api/notifications/me").header(HttpHeaders.AUTHORIZATION, bearer(bob)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.type == 'TASK_ASSIGNED')]", hasSize(1)));
+    }
+
+    @Test
+    void selfAssignmentDoesNotNotify() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        long project = createProject(owner, ws, "Website");
+        long task = createTask(owner, project, "Mine");
+
+        mockMvc.perform(put("/api/projects/{id}/tasks/{tid}/assign", project, task)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assigneeId":%d}""".formatted(userId("owner@example.com"))))
+                .andExpect(status().isOk());
+
+        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(userId("owner@example.com")))
+                .noneMatch(n -> n.getType() == NotificationType.TASK_ASSIGNED);
     }
 
     @Test
