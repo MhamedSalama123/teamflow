@@ -47,6 +47,23 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    public void sendWorkspaceInvitation(String to, String inviterName, String workspaceName) {
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null || mailHost == null || mailHost.isBlank()) {
+            log.warn("Mail is not configured; {} was invited to workspace '{}'", to, workspaceName);
+            return;
+        }
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(to);
+        message.setSubject("You've been invited to a TeamFlow workspace");
+        message.setText("%s invited you to join the TeamFlow workspace '%s'. "
+                .formatted(inviterName, workspaceName)
+                + "Sign in to TeamFlow to accept or decline the invitation.");
+        mailSender.send(message);
+    }
+
     public void sendPasswordResetLink(String to, String resetLink) {
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
         if (mailSender == null || mailHost == null || mailHost.isBlank()) {
