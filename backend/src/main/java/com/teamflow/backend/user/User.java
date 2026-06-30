@@ -58,6 +58,24 @@ public class User {
     @Column(name = "reset_token_expires_at")
     private Instant resetTokenExpiresAt;
 
+    @Column(name = "bio", columnDefinition = "text")
+    private String bio;
+
+    @Column(name = "job_title", length = 150)
+    private String jobTitle;
+
+    @Column(name = "location", length = 150)
+    private String location;
+
+    @Column(name = "phone_number", length = 40)
+    private String phoneNumber;
+
+    @Column(name = "photo_url")
+    private String photoUrl;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

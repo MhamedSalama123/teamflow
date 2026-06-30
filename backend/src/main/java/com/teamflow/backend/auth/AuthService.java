@@ -48,7 +48,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(request.email())
                 .orElseThrow(InvalidCredentialsException::new);
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();

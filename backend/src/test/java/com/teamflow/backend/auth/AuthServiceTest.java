@@ -86,7 +86,7 @@ class AuthServiceTest {
                 .password(passwordEncoder.encode("password123"))
                 .emailVerified(false)
                 .build();
-        when(userRepository.findByEmail("a@example.com")).thenReturn(java.util.Optional.of(user));
+        when(userRepository.findByEmailAndDeletedAtIsNull("a@example.com")).thenReturn(java.util.Optional.of(user));
 
         assertThatExceptionOfType(EmailNotVerifiedException.class).isThrownBy(() ->
                 authService.login(new LoginRequest("a@example.com", "password123")));
@@ -94,7 +94,7 @@ class AuthServiceTest {
 
     @Test
     void loginSucceedsForVerifiedUser() {
-        when(userRepository.findByEmail("a@example.com"))
+        when(userRepository.findByEmailAndDeletedAtIsNull("a@example.com"))
                 .thenReturn(java.util.Optional.of(verifiedUser("a@example.com", "password123")));
 
         AuthResponse response = authService.login(new LoginRequest("a@example.com", "password123"));
@@ -104,7 +104,7 @@ class AuthServiceTest {
 
     @Test
     void loginRejectsWrongPasswordBeforeCheckingVerification() {
-        when(userRepository.findByEmail("a@example.com"))
+        when(userRepository.findByEmailAndDeletedAtIsNull("a@example.com"))
                 .thenReturn(java.util.Optional.of(verifiedUser("a@example.com", "password123")));
 
         assertThatExceptionOfType(InvalidCredentialsException.class).isThrownBy(() ->

@@ -2,6 +2,7 @@
   <a routerLink="/" class="text-xl font-bold">TeamFlow</a>
   <nav class="flex gap-4">
     @if (auth.isAuthenticated()) {
+      <a routerLink="/profile" class="hover:underline">Profile</a>
       <button type="button" class="hover:underline" (click)="auth.logout()">Log out</button>
     } @else {
       <a routerLink="/login" class="hover:underline">Log in</a>

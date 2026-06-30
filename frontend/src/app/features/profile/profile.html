@@ -1,0 +1,139 @@
+<div class="mx-auto flex max-w-2xl flex-col gap-8">
+  <h1 class="text-2xl font-bold text-slate-800">Your profile</h1>
+
+  @if (profile(); as currentProfile) {
+    <!-- Photo -->
+    <section class="flex items-center gap-4">
+      @if (previewUrl() || photoUrl(); as src) {
+        <img [src]="src" alt="Profile photo" class="h-20 w-20 rounded-full object-cover" />
+      } @else {
+        <div class="flex h-20 w-20 items-center justify-center rounded-full bg-slate-200 text-2xl text-slate-500">
+          {{ currentProfile.username.charAt(0).toUpperCase() }}
+        </div>
+      }
+      <div class="flex flex-col gap-2">
+        <input type="file" accept="image/*" (change)="onFileSelected($event)" class="text-sm" />
+        <button
+          type="button"
+          (click)="uploadPhoto()"
+          class="self-start rounded bg-slate-700 px-3 py-1 text-sm font-medium text-white hover:bg-slate-800"
+        >
+          Upload photo
+        </button>
+        @if (photoError()) {
+          <span class="text-xs text-red-600">{{ photoError() }}</span>
+        }
+      </div>
+    </section>
+
+    <!-- Editable profile fields -->
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-700">Details</h2>
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="flex flex-col gap-4">
+        @if (profileSaved()) {
+          <p class="rounded bg-green-50 px-3 py-2 text-sm text-green-700">Profile saved.</p>
+        }
+        @if (profileError()) {
+          <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ profileError() }}</p>
+        }
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">Bio</span>
+          <textarea
+            formControlName="bio"
+            rows="3"
+            class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+          ></textarea>
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">Job title</span>
+          <input formControlName="jobTitle" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">Location</span>
+          <input formControlName="location" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">Phone number</span>
+          <input formControlName="phoneNumber" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+        </label>
+
+        <button type="submit" class="self-start rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+          Save changes
+        </button>
+      </form>
+    </section>
+
+    <!-- Change password -->
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-700">Change password</h2>
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="flex flex-col gap-4">
+        @if (passwordMessage()) {
+          <p class="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{{ passwordMessage() }}</p>
+        }
+        @if (passwordError()) {
+          <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ passwordError() }}</p>
+        }
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">Current password</span>
+          <input type="password" formControlName="currentPassword" autocomplete="current-password" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">New password</span>
+          <input type="password" formControlName="newPassword" autocomplete="new-password" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+          @if (passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid) {
+            <span class="text-xs text-red-600">Password must be at least 8 characters.</span>
+          }
+        </label>
+
+        <button type="submit" class="self-start rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+          Update password
+        </button>
+      </form>
+    </section>
+
+    <!-- Change email -->
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-700">Change email</h2>
+      <p class="mb-3 text-sm text-slate-600">
+        Current email: <span class="font-medium">{{ currentProfile.email }}</span>.
+        Changing it requires verifying the new address and signing in again.
+      </p>
+      <form [formGroup]="emailForm" (ngSubmit)="changeEmail()" class="flex flex-col gap-4">
+        @if (emailError()) {
+          <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ emailError() }}</p>
+        }
+
+        <label class="flex flex-col gap-1">
+          <span class="text-sm font-medium text-slate-700">New email</span>
+          <input type="email" formControlName="newEmail" autocomplete="email" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+          @if (emailForm.controls.newEmail.touched && emailForm.controls.newEmail.invalid) {
+            <span class="text-xs text-red-600">Enter a valid email address.</span>
+          }
+        </label>
+
+        <button type="submit" class="self-start rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+          Change email
+        </button>
+      </form>
+    </section>
+
+    <!-- Danger zone -->
+    <section class="rounded border border-red-200 p-4">
+      <h2 class="mb-2 text-lg font-semibold text-red-700">Delete account</h2>
+      <p class="mb-3 text-sm text-slate-600">This deactivates your account and signs you out.</p>
+      <button type="button" (click)="deleteAccount()" class="rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700">
+        Delete my account
+      </button>
+    </section>
+  } @else if (profileError()) {
+    <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ profileError() }}</p>
+  } @else {
+    <p class="text-slate-600">Loading your profile…</p>
+  }
+</div>
