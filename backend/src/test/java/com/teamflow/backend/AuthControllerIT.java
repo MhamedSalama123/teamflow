@@ -143,11 +143,12 @@ class AuthControllerIT {
         String code = storedCode("frank@example.com");
         String wrong = "000000".equals(code) ? "111111" : "000000";
 
+        // The third wrong code is still reported as a bad code, but it trips the lockout.
         verify("frank@example.com", wrong, status().isBadRequest());
         verify("frank@example.com", wrong, status().isBadRequest());
-        verify("frank@example.com", wrong, status().isTooManyRequests());
+        verify("frank@example.com", wrong, status().isBadRequest());
 
-        // Even the correct code is rejected while locked out.
+        // The next attempt is blocked while locked out, even with the correct code.
         verify("frank@example.com", code, status().isTooManyRequests());
     }
 

@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -46,7 +47,13 @@ public class EmailVerificationService {
      *
      * @return the now-verified user
      */
-    @Transactional
+    // Runs in its own transaction that commits even when we throw to signal a bad code or a lockout:
+    // the failed-attempt counter (and the lockout it eventually triggers) is security bookkeeping that
+    // must survive, but a plain @Transactional would discard it when the caller's transaction rolls
+    // back on the thrown exception. REQUIRES_NEW isolates it; noRollbackFor lets it commit on throw.
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            noRollbackFor = {InvalidVerificationCodeException.class, VerificationLockedException.class})
     public User verify(String email, String code) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(InvalidVerificationCodeException::new);
