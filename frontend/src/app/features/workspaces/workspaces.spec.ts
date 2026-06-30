@@ -102,12 +102,32 @@ describe('Workspaces', () => {
   it('invites a member and refreshes the selected workspace', () => {
     const component = setup().componentInstance as any;
     component.select(1);
-    component.inviteForm.setValue({ email: 'carol@example.com' });
+    component.inviteForm.setValue({ email: 'carol@example.com', role: 'MEMBER' });
 
     component.invite();
 
-    expect(serviceStub.invite).toHaveBeenCalledWith(1, 'carol@example.com');
+    expect(serviceStub.invite).toHaveBeenCalledWith(1, 'carol@example.com', 'MEMBER');
     expect(component.notice()).toBe('Invitation sent.');
+  });
+
+  it('invites directly as admin when chosen', () => {
+    const component = setup().componentInstance as any;
+    component.select(1);
+    component.inviteForm.setValue({ email: 'carol@example.com', role: 'ADMIN' });
+
+    component.invite();
+
+    expect(serviceStub.invite).toHaveBeenCalledWith(1, 'carol@example.com', 'ADMIN');
+  });
+
+  it('allows granting admin only to an owner', () => {
+    const component = setup().componentInstance as any;
+    component.select(1);
+    expect(component.canInviteAsAdmin()).toBe(true);
+
+    serviceStub.detail.mockReturnValueOnce(of({ ...DETAIL, role: 'ADMIN' }));
+    component.select(1);
+    expect(component.canInviteAsAdmin()).toBe(false);
   });
 
   it('exposes management ability based on the current role', () => {

@@ -69,13 +69,21 @@ describe('WorkspaceService', () => {
     req.flush(detail);
   });
 
-  it('invites a member by email', () => {
+  it('invites a member by email with a default role', () => {
     service.invite(1, 'bob@example.com').subscribe();
 
     const req = httpMock.expectOne('/api/workspaces/1/invite');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ email: 'bob@example.com' });
+    expect(req.request.body).toEqual({ email: 'bob@example.com', role: 'MEMBER' });
     req.flush(MEMBER);
+  });
+
+  it('invites a member with an explicit admin role', () => {
+    service.invite(1, 'bob@example.com', 'ADMIN').subscribe();
+
+    const req = httpMock.expectOne('/api/workspaces/1/invite');
+    expect(req.request.body).toEqual({ email: 'bob@example.com', role: 'ADMIN' });
+    req.flush({ ...MEMBER, role: 'ADMIN' });
   });
 
   it('accepts and declines an invitation', () => {

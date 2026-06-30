@@ -85,22 +85,35 @@ public class WorkspaceService {
             String actorEmail, Long workspaceId, InviteMemberRequest request) {
         User actor = requireActiveUser(actorEmail);
         Workspace workspace = requireWorkspace(workspaceId);
-        requireManager(workspaceId, actor.getId());
+        WorkspaceMember actorMembership = requireManager(workspaceId, actor.getId());
+        WorkspaceRole role = resolveInviteRole(request.roleOrDefault(), actorMembership);
 
         String email = request.email().trim();
         return userRepository.findByEmailAndDeletedAtIsNull(email)
-                .map(invitee -> inviteRegistered(workspace, actor, invitee))
-                .orElseGet(() -> inviteUnregistered(workspace, actor, email));
+                .map(invitee -> inviteRegistered(workspace, actor, invitee, role))
+                .orElseGet(() -> inviteUnregistered(workspace, actor, email, role));
     }
 
-    private WorkspaceMemberResponse inviteRegistered(Workspace workspace, User actor, User invitee) {
+    /** Validates the requested invite role: owners may grant ADMIN; nobody may invite as OWNER. */
+    private WorkspaceRole resolveInviteRole(WorkspaceRole role, WorkspaceMember actorMembership) {
+        if (role == WorkspaceRole.OWNER) {
+            throw new IllegalWorkspaceOperationException("Members cannot be invited as an owner.");
+        }
+        if (role == WorkspaceRole.ADMIN && actorMembership.getRole() != WorkspaceRole.OWNER) {
+            throw new WorkspaceAccessDeniedException("Only an owner can invite a member as an admin.");
+        }
+        return role;
+    }
+
+    private WorkspaceMemberResponse inviteRegistered(
+            Workspace workspace, User actor, User invitee, WorkspaceRole role) {
         if (memberRepository.existsByWorkspaceIdAndUserId(workspace.getId(), invitee.getId())) {
             throw new DuplicateWorkspaceMemberException();
         }
         WorkspaceMember invitation = memberRepository.save(WorkspaceMember.builder()
                 .workspace(workspace)
                 .user(invitee)
-                .role(WorkspaceRole.MEMBER)
+                .role(role)
                 .status(WorkspaceMemberStatus.INVITED)
                 .build());
         emailService.sendWorkspaceInvitation(invitee.getEmail(), displayName(actor), workspace.getName());
@@ -112,14 +125,15 @@ public class WorkspaceService {
         return WorkspaceMemberResponse.from(invitation);
     }
 
-    private WorkspaceMemberResponse inviteUnregistered(Workspace workspace, User actor, String email) {
+    private WorkspaceMemberResponse inviteUnregistered(
+            Workspace workspace, User actor, String email, WorkspaceRole role) {
         if (invitationRepository.existsByWorkspaceIdAndEmailIgnoreCase(workspace.getId(), email)) {
             throw new DuplicateWorkspaceMemberException();
         }
         WorkspaceInvitation invitation = invitationRepository.save(WorkspaceInvitation.builder()
                 .workspace(workspace)
                 .email(email)
-                .role(WorkspaceRole.MEMBER)
+                .role(role)
                 .invitedBy(actor)
                 .build());
         emailService.sendWorkspaceInvitation(email, displayName(actor), workspace.getName());

@@ -20,8 +20,15 @@ export class WorkspaceService {
     return this.http.get<WorkspaceDetail>(`${this.baseUrl}/${workspaceId}`);
   }
 
-  invite(workspaceId: number, email: string): Observable<WorkspaceMember> {
-    return this.http.post<WorkspaceMember>(`${this.baseUrl}/${workspaceId}/invite`, { email });
+  invite(
+    workspaceId: number,
+    email: string,
+    role: WorkspaceRole = 'MEMBER',
+  ): Observable<WorkspaceMember> {
+    return this.http.post<WorkspaceMember>(`${this.baseUrl}/${workspaceId}/invite`, {
+      email,
+      role,
+    });
   }
 
   acceptInvite(workspaceId: number): Observable<Workspace> {

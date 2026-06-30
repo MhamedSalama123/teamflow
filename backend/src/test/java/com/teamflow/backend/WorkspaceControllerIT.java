@@ -277,6 +277,88 @@ class WorkspaceControllerIT {
     }
 
     @Test
+    void ownerCanInviteRegisteredUserDirectlyAsAdmin() throws Exception {
+        String owner = authenticate("owner@example.com");
+        String bob = authenticate("bob@example.com");
+        authenticate("carol@example.com");
+        long ws = createWorkspace(owner, "Acme");
+
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"bob@example.com","role":"ADMIN"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role", is("ADMIN")));
+
+        mockMvc.perform(post("/api/workspaces/{id}/invite/accept", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(bob)))
+                .andExpect(status().isOk());
+        // Bob came in as an admin, so he may already invite others.
+        invite(bob, ws, "carol@example.com");
+    }
+
+    @Test
+    void ownerCanInviteUnregisteredEmailAsAdmin() throws Exception {
+        String owner = authenticate("owner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"newcomer@example.com","role":"ADMIN"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role", is("ADMIN")));
+
+        // When the invitee registers, the admin role carries over to the membership.
+        authenticate("newcomer@example.com");
+        assertThat(memberRepository.findByWorkspaceIdAndUserId(ws, userId("newcomer@example.com")))
+                .get()
+                .satisfies(m -> assertThat(m.getRole()).isEqualTo(WorkspaceRole.ADMIN));
+    }
+
+    @Test
+    void adminCannotInviteAsAdmin() throws Exception {
+        String owner = authenticate("owner@example.com");
+        String bob = authenticate("bob@example.com");
+        authenticate("carol@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        invite(owner, ws, "bob@example.com");
+        mockMvc.perform(post("/api/workspaces/{id}/invite/accept", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(bob)))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/workspaces/{id}/members/{userId}/role", ws, userId("bob@example.com"))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"ADMIN"}"""))
+                .andExpect(status().isOk());
+
+        // An admin may invite, but only as a plain member.
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(bob))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"carol@example.com","role":"ADMIN"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void inviteAsOwnerRoleIsRejected() throws Exception {
+        String owner = authenticate("owner@example.com");
+        authenticate("bob@example.com");
+        long ws = createWorkspace(owner, "Acme");
+
+        mockMvc.perform(post("/api/workspaces/{id}/invite", ws)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"bob@example.com","role":"OWNER"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void acceptInviteActivatesMembership() throws Exception {
         String owner = authenticate("owner@example.com");
         String bob = authenticate("bob@example.com");

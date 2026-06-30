@@ -33,6 +33,7 @@ export class Workspaces implements OnInit {
 
   protected readonly inviteForm = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
+    role: ['MEMBER' as WorkspaceRole],
   });
 
   ngOnInit(): void {
@@ -43,6 +44,11 @@ export class Workspaces implements OnInit {
   protected canManage(): boolean {
     const detail = this.selected();
     return detail !== null && MANAGED_ROLES.includes(detail.role);
+  }
+
+  /** Only an owner may invite someone directly as an admin. */
+  protected canInviteAsAdmin(): boolean {
+    return this.selected()?.role === 'OWNER';
   }
 
   protected create(): void {
@@ -74,9 +80,10 @@ export class Workspaces implements OnInit {
       return;
     }
     this.reset();
-    this.workspaceService.invite(detail.id, this.inviteForm.getRawValue().email).subscribe({
+    const { email, role } = this.inviteForm.getRawValue();
+    this.workspaceService.invite(detail.id, email, role).subscribe({
       next: () => {
-        this.inviteForm.reset({ email: '' });
+        this.inviteForm.reset({ email: '', role: 'MEMBER' });
         // Refresh first: select() clears transient messages, so set the notice afterwards.
         this.select(detail.id);
         this.notice.set('Invitation sent.');
