@@ -58,6 +58,9 @@ public class User {
     @Column(name = "reset_token_expires_at")
     private Instant resetTokenExpiresAt;
 
+    @Column(name = "full_name", length = 150)
+    private String fullName;
+
     @Column(name = "bio", columnDefinition = "text")
     private String bio;
 

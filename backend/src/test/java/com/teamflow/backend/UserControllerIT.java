@@ -1,6 +1,8 @@
 package com.teamflow.backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -13,7 +15,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.teamflow.backend.security.EmailService;
+import com.teamflow.backend.user.User;
 import com.teamflow.backend.user.UserRepository;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,8 +93,9 @@ class UserControllerIT {
                         .header(HttpHeaders.AUTHORIZATION, bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"bio":"Builder","jobTitle":"Engineer","location":"Cairo","phoneNumber":"+20100"}"""))
+                                {"fullName":"Ben Carter","bio":"Builder","jobTitle":"Engineer","location":"Cairo","phoneNumber":"+20100"}"""))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName", is("Ben Carter")))
                 .andExpect(jsonPath("$.bio", is("Builder")))
                 .andExpect(jsonPath("$.jobTitle", is("Engineer")));
 
@@ -176,5 +181,102 @@ class UserControllerIT {
         assertThat(userRepository.findByEmail("hugo@example.com").orElseThrow().getDeletedAt()).isNotNull();
         mockMvc.perform(get("/api/users/me").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /** Persists a verified, active directory user directly, bypassing the registration flow. */
+    private void seedUser(String username, String fullName, String jobTitle, String location) {
+        userRepository.save(User.builder()
+                .email(username + "@example.com")
+                .username(username)
+                .password("unused")
+                .emailVerified(true)
+                .fullName(fullName)
+                .jobTitle(jobTitle)
+                .location(location)
+                .build());
+    }
+
+    @Test
+    void searchRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/users/search").param("q", "a")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void searchMatchesUsernameOrFullNameCaseInsensitively() throws Exception {
+        String token = authenticate("searcher@example.com");
+        seedUser("alice", "Alice Wonder", "Engineer", "Cairo");
+        seedUser("bob", "Bob Smith", "Designer", "Berlin");
+
+        // Partial, case-insensitive match on the username.
+        mockMvc.perform(get("/api/users/search").param("q", "ALI").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].username", is("alice")))
+                .andExpect(jsonPath("$.content[0].fullName", is("Alice Wonder")))
+                .andExpect(jsonPath("$.totalElements", is(1)));
+
+        // Partial match on the full name.
+        mockMvc.perform(get("/api/users/search").param("q", "smith").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].username", is("bob")));
+    }
+
+    @Test
+    void searchFiltersByJobTitleAndLocation() throws Exception {
+        String token = authenticate("searcher@example.com");
+        seedUser("alice", "Alice Wonder", "Engineer", "Cairo");
+        seedUser("bob", "Bob Smith", "Designer", "Berlin");
+        seedUser("carol", "Carol Jones", "Engineer", "Cairo");
+
+        mockMvc.perform(get("/api/users/search").param("jobTitle", "engineer")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[*].username", containsInAnyOrder("alice", "carol")));
+
+        mockMvc.perform(get("/api/users/search").param("location", "berlin")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].username", is("bob")));
+    }
+
+    @Test
+    void searchExcludesSoftDeletedUsers() throws Exception {
+        String token = authenticate("searcher@example.com");
+        userRepository.save(User.builder()
+                .email("ghost@example.com").username("ghost").password("unused").emailVerified(true)
+                .fullName("Ghost User").deletedAt(Instant.now()).build());
+
+        mockMvc.perform(get("/api/users/search").param("q", "ghost")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements", is(0)));
+    }
+
+    @Test
+    void searchPaginatesResults() throws Exception {
+        String token = authenticate("searcher@example.com");
+        seedUser("qa1", "Q A One", "QA", "Remote");
+        seedUser("qa2", "Q A Two", "QA", "Remote");
+        seedUser("qa3", "Q A Three", "QA", "Remote");
+
+        mockMvc.perform(get("/api/users/search").param("jobTitle", "qa").param("page", "0").param("size", "2")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[*].username", containsInAnyOrder("qa1", "qa2")))
+                .andExpect(jsonPath("$.totalElements", is(3)))
+                .andExpect(jsonPath("$.totalPages", is(2)))
+                .andExpect(jsonPath("$.page", is(0)))
+                .andExpect(jsonPath("$.size", is(2)));
+
+        mockMvc.perform(get("/api/users/search").param("jobTitle", "qa").param("page", "1").param("size", "2")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].username", is("qa3")));
     }
 }

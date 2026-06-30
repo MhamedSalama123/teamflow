@@ -29,6 +29,7 @@ export class Profile implements OnInit {
   protected readonly emailError = signal<string | null>(null);
 
   protected readonly profileForm = this.fb.nonNullable.group({
+    fullName: [''],
     bio: [''],
     jobTitle: [''],
     location: [''],
@@ -146,6 +147,7 @@ export class Profile implements OnInit {
     this.profile.set(profile);
     this.photoUrl.set(profile.photoUrl);
     this.profileForm.patchValue({
+      fullName: profile.fullName ?? '',
       bio: profile.bio ?? '',
       jobTitle: profile.jobTitle ?? '',
       location: profile.location ?? '',

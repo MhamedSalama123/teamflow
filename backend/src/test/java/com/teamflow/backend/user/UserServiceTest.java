@@ -88,8 +88,9 @@ class UserServiceTest {
 
         UserProfileResponse response = userService.updateProfile(
                 "user@example.com",
-                new UpdateProfileRequest("My bio", "Engineer", "Cairo", "+201234567"));
+                new UpdateProfileRequest("Ada Lovelace", "My bio", "Engineer", "Cairo", "+201234567"));
 
+        assertThat(response.fullName()).isEqualTo("Ada Lovelace");
         assertThat(response.bio()).isEqualTo("My bio");
         assertThat(response.jobTitle()).isEqualTo("Engineer");
         assertThat(response.location()).isEqualTo("Cairo");

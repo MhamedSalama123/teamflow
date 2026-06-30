@@ -91,6 +91,7 @@ public class AuthService {
         User user = User.builder()
                 .email(userInfo.email())
                 .username(resolveUsername(userInfo))
+                .fullName(userInfo.name())
                 // Google users authenticate via the provider, so set an unusable random
                 // password that satisfies the non-null column but matches nothing on login.
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))

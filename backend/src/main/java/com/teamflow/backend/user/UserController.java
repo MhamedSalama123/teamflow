@@ -2,9 +2,11 @@ package com.teamflow.backend.user;
 
 import com.teamflow.backend.user.dto.ChangeEmailRequest;
 import com.teamflow.backend.user.dto.ChangePasswordRequest;
+import com.teamflow.backend.user.dto.PagedResponse;
 import com.teamflow.backend.user.dto.PhotoUploadResponse;
 import com.teamflow.backend.user.dto.UpdateProfileRequest;
 import com.teamflow.backend.user.dto.UserProfileResponse;
+import com.teamflow.backend.user.dto.UserSearchResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,16 @@ public class UserController {
     @GetMapping("/me")
     public UserProfileResponse me(Authentication authentication) {
         return userService.getProfile(authentication.getName());
+    }
+
+    @GetMapping("/search")
+    public PagedResponse<UserSearchResult> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String jobTitle,
+            @RequestParam(required = false) String location,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return userService.search(q, jobTitle, location, page, size);
     }
 
     @PutMapping("/me")

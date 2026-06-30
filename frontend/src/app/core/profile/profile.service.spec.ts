@@ -9,6 +9,7 @@ const PROFILE: UserProfile = {
   id: 1,
   email: 'a@b.com',
   username: 'alice',
+  fullName: null,
   bio: null,
   jobTitle: null,
   location: null,
@@ -39,7 +40,7 @@ describe('ProfileService', () => {
   });
 
   it('updates the profile', () => {
-    const body = { bio: 'hi', jobTitle: 'Eng', location: 'Cairo', phoneNumber: '+20' };
+    const body = { fullName: 'Al', bio: 'hi', jobTitle: 'Eng', location: 'Cairo', phoneNumber: '+20' };
     service.updateProfile(body).subscribe();
     const req = httpMock.expectOne('/api/users/me');
     expect(req.request.method).toBe('PUT');

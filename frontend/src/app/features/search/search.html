@@ -1,0 +1,81 @@
+<div class="mx-auto flex max-w-3xl flex-col gap-6">
+  <h1 class="text-2xl font-bold text-slate-800">Find people</h1>
+
+  <form [formGroup]="filters" (ngSubmit)="submit()" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <label class="flex flex-1 flex-col gap-1">
+      <span class="text-sm font-medium text-slate-700">Name or username</span>
+      <input
+        formControlName="q"
+        placeholder="Search…"
+        class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+      />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium text-slate-700">Job title</span>
+      <input formControlName="jobTitle" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-sm font-medium text-slate-700">Location</span>
+      <input formControlName="location" class="rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none" />
+    </label>
+    <button type="submit" class="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+      Search
+    </button>
+  </form>
+
+  @if (error()) {
+    <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+  }
+
+  @if (searched()) {
+    @if (results().length > 0) {
+      <p class="text-sm text-slate-500">{{ totalElements() }} result(s)</p>
+      <ul class="flex flex-col divide-y divide-slate-200 rounded border border-slate-200">
+        @for (result of results(); track result.id) {
+          <li class="flex items-center gap-4 px-4 py-3">
+            @if (result.photoUrl) {
+              <img [src]="result.photoUrl" alt="" class="h-12 w-12 rounded-full object-cover" />
+            } @else {
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-lg text-slate-500">
+                {{ initial(result) }}
+              </div>
+            }
+            <div class="flex flex-col">
+              <span class="font-medium text-slate-800">{{ result.fullName ?? result.username }}</span>
+              <span class="text-sm text-slate-500">{{ '@' + result.username }}</span>
+              @if (result.jobTitle || result.location) {
+                <span class="text-sm text-slate-600">
+                  {{ result.jobTitle }}@if (result.jobTitle && result.location) {<span> · </span>}{{ result.location }}
+                </span>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (totalPages() > 1) {
+        <div class="flex items-center justify-center gap-4">
+          <button
+            type="button"
+            (click)="goTo(page() - 1)"
+            [disabled]="page() === 0"
+            class="rounded border border-slate-300 px-3 py-1 text-sm disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span class="text-sm text-slate-600">Page {{ page() + 1 }} of {{ totalPages() }}</span>
+          <button
+            type="button"
+            (click)="goTo(page() + 1)"
+            [disabled]="page() + 1 >= totalPages()"
+            class="rounded border border-slate-300 px-3 py-1 text-sm disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      }
+    } @else {
+      <p class="text-slate-600">No users matched your search.</p>
+    }
+  }
+</div>

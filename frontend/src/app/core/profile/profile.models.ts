@@ -2,6 +2,7 @@ export interface UserProfile {
   id: number;
   email: string;
   username: string;
+  fullName: string | null;
   bio: string | null;
   jobTitle: string | null;
   location: string | null;
@@ -11,6 +12,7 @@ export interface UserProfile {
 }
 
 export interface UpdateProfileRequest {
+  fullName: string | null;
   bio: string | null;
   jobTitle: string | null;
   location: string | null;

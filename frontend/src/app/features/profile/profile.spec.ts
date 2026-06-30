@@ -11,6 +11,7 @@ const PROFILE: UserProfile = {
   id: 1,
   email: 'a@b.com',
   username: 'alice',
+  fullName: 'Alice Wonder',
   bio: 'Hello',
   jobTitle: 'Engineer',
   location: 'Cairo',
@@ -62,6 +63,7 @@ describe('Profile', () => {
     component.saveProfile();
 
     expect(profileStub.updateProfile).toHaveBeenCalledWith({
+      fullName: 'Alice Wonder',
       bio: 'Hello',
       jobTitle: 'Engineer',
       location: 'Cairo',
