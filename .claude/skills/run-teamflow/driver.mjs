@@ -1,6 +1,7 @@
 // End-to-end driver for TeamFlow: seeds data through the REST API, then drives
 // the running Angular app in a real (headless) Chrome to exercise the per-project
-// real-time chat panel (@mention autocomplete + live STOMP delivery).
+// real-time chat panel (@mention autocomplete + live STOMP delivery) and the AI
+// assistant panel (Summarize / Generate Tasks / Ask tabs).
 //
 // Prereqs (see SKILL.md): backend + frontend already running, and `playwright-core`
 // installed somewhere resolvable (NODE_PATH). Chrome or Edge must be installed.
@@ -151,6 +152,25 @@ try {
   await page.waitForSelector('text=Pushing the mockups now', { timeout: 10000 });
   await shot('04-realtime.png');
   log('real-time message received live');
+
+  // AI assistant panel. The three tabs render regardless of whether a Claude key is
+  // configured; LIVE output needs ANTHROPIC_API_KEY on the backend (otherwise the calls
+  // return 503 and the panel shows a graceful error — not a console error). Use exact-match
+  // role selectors: `:has-text("Ask")` also matches the board's "Add task" button.
+  await page.getByText('AI Assistant').scrollIntoViewIfNeeded();
+  await shot('05-ai-summarize-tab.png');
+
+  await page.getByRole('button', { name: 'Generate Tasks', exact: true }).click();
+  await page.fill(
+    'textarea[placeholder^="Describe the work"]',
+    'Build a marketing landing page with a hero, pricing table, and contact form.',
+  );
+  await shot('06-ai-generate-tab.png');
+
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await page.fill('textarea[placeholder^="Ask anything"]', 'What is left to do before launch?');
+  await shot('07-ai-ask-tab.png');
+  log('AI panel: Summarize / Generate Tasks / Ask tabs rendered');
 
   if (errors.length) throw new Error(`console errors: ${JSON.stringify(errors)}`);
   log(`SUCCESS — screenshots in ${OUT}/`);

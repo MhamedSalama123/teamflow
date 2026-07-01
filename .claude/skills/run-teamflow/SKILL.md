@@ -1,6 +1,6 @@
 ---
 name: run-teamflow
-description: Build, launch, and drive the TeamFlow full-stack app (Spring Boot backend + Angular frontend) to see it working in a real browser. Use to run/start TeamFlow, screenshot the app, or verify a UI change end-to-end (e.g. the real-time chat panel, kanban board, notifications).
+description: Build, launch, and drive the TeamFlow full-stack app (Spring Boot backend + Angular frontend) to see it working in a real browser. Use to run/start TeamFlow, screenshot the app, or verify a UI change end-to-end (e.g. the real-time chat panel, kanban board, AI assistant panel, notifications).
 ---
 
 # Run TeamFlow
@@ -12,9 +12,10 @@ backend (see `frontend/proxy.conf.json`).
 
 The agent path is a Playwright driver — **`.claude/skills/run-teamflow/driver.mjs`**
 — that seeds data through the REST API and drives a real headless Chrome through a
-full user flow (loads the chat panel, uses `@mention` autocomplete, sends a
-message, and confirms a second message arrives **live over STOMP**), writing
-screenshots you can inspect.
+full user flow: it loads the chat panel, uses `@mention` autocomplete, sends a
+message, confirms a second message arrives **live over STOMP**, then opens the AI
+assistant panel and steps through its three tabs (Summarize / Generate Tasks /
+Ask). It writes screenshots you can inspect.
 
 All paths below are relative to the repo root.
 
@@ -73,10 +74,19 @@ OUT_DIR=.claude/skills/run-teamflow/screenshots \
   node .claude/skills/run-teamflow/driver.mjs
 ```
 
-Prints `SUCCESS` and writes `01-chat-loaded.png`, `02-mention-autocomplete.png`,
-`03-message-sent.png`, `04-realtime.png` to `OUT_DIR`. **Open them** — a blank or
-error frame means it didn't really run. On failure it writes `99-error.png` and
-exits 1. The driver fails if the browser logs any console error.
+Prints `SUCCESS` and writes screenshots to `OUT_DIR`: `01-chat-loaded.png`,
+`02-mention-autocomplete.png`, `03-message-sent.png`, `04-realtime.png` (chat), and
+`05-ai-summarize-tab.png`, `06-ai-generate-tab.png`, `07-ai-ask-tab.png` (AI panel).
+**Open them** — a blank or error frame means it didn't really run. On failure it
+writes `99-error.png` and exits 1. The driver fails if the browser logs any console
+error.
+
+**AI panel — live output needs a Claude key.** The driver verifies the AI panel
+*renders* and its tabs work; it does not click through a live summarize/ask, because
+that needs `ANTHROPIC_API_KEY` on the backend. Without a key the `/api/ai/*` calls
+return 503 and the panel shows a graceful error (no console error, so the driver
+still passes). To see real AI output, start the backend with the key set
+(`ANTHROPIC_API_KEY=sk-ant-… ./gradlew bootTestRun …`) and click a tab's button.
 
 Env vars (all optional except `BACKEND_LOG`): `FE_URL` (default
 `http://localhost:4200`), `BE_URL` (default `http://localhost:8080`),
@@ -117,6 +127,10 @@ it can't prove the real-time round-trip on its own.
   navigates to `/projects` — no UI login needed. STOMP reads the same token.
 - **Chat needs an active member.** `@mention` autocomplete only suggests **active**
   workspace members, so the driver invites Bob and accepts before opening the panel.
+- **AI tab selectors need exact match.** `getByRole('button', {name: 'Ask'})` /
+  `:has-text("Ask")` also matches the board's **"Add task"** button (substring, case
+  insensitive → "add t**ask**"). The driver uses `{ name: 'Ask', exact: true }` for the
+  AI tabs.
 - **First `/projects` paint is slow.** Angular compiles the lazy route on first
   hit; `wait-for` the `Chat` heading rather than sleeping.
 - **Unique users per run.** The driver suffixes emails/usernames with a timestamp
