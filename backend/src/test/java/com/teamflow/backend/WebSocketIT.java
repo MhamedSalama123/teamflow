@@ -104,6 +104,39 @@ class WebSocketIT {
     }
 
     @Test
+    void memberReceivesChatMessagesLive() throws Exception {
+        String token = authenticate("wsowner@example.com");
+        long workspace = createWorkspace(token, "Acme");
+        long project = createProject(token, workspace, "Website");
+
+        StompSession session = connect(token);
+        BlockingQueue<Map<String, Object>> messages = new LinkedBlockingQueue<>();
+        session.subscribe("/topic/projects/" + project + "/chat", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return Map.class;
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public void handleFrame(StompHeaders headers, Object payload) {
+                messages.add((Map<String, Object>) payload);
+            }
+        });
+        Thread.sleep(400);
+
+        post("/api/projects/" + project + "/chat/messages",
+                """
+                {"content":"Hello over the wire"}""", token);
+
+        Map<String, Object> message = messages.poll(5, TimeUnit.SECONDS);
+        assertThat(message).isNotNull();
+        assertThat(message.get("content")).isEqualTo("Hello over the wire");
+
+        session.disconnect();
+    }
+
+    @Test
     void connectWithoutTokenIsRejected() {
         WebSocketStompClient client = stompClient();
         assertThatThrownBy(() -> client

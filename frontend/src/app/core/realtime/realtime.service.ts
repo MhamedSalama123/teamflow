@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Client } from '@stomp/stompjs';
 import { Observable } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { ChatMessage } from '../chat/chat.models';
 import { AppNotification } from '../notification/notification.models';
 import { TaskEvent } from '../project/project.models';
 
@@ -18,16 +19,21 @@ export class RealtimeService {
     return this.watch<TaskEvent>(`/topic/projects/${projectId}`);
   }
 
+  /** New chat messages broadcast to a project's chat channel, via the dedicated `/ws/chat` endpoint. */
+  watchProjectChat(projectId: number): Observable<ChatMessage> {
+    return this.watch<ChatMessage>(`/topic/projects/${projectId}/chat`, '/ws/chat');
+  }
+
   /** The current user's personal notification queue. */
   watchNotifications(): Observable<AppNotification> {
     return this.watch<AppNotification>('/user/queue/notifications');
   }
 
-  private watch<T>(destination: string): Observable<T> {
+  private watch<T>(destination: string, endpoint = '/ws'): Observable<T> {
     return new Observable<T>((subscriber) => {
       const token = this.auth.getAccessToken();
       const client = new Client({
-        brokerURL: this.brokerUrl(),
+        brokerURL: this.brokerUrl(endpoint),
         connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
         reconnectDelay: 5000,
       });
@@ -47,8 +53,8 @@ export class RealtimeService {
     });
   }
 
-  private brokerUrl(): string {
+  private brokerUrl(endpoint: string): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws`;
+    return `${protocol}//${window.location.host}${endpoint}`;
   }
 }

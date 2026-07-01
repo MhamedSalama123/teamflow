@@ -1,4 +1,4 @@
-export type NotificationType = 'WORKSPACE_INVITATION' | 'TASK_ASSIGNED';
+export type NotificationType = 'WORKSPACE_INVITATION' | 'TASK_ASSIGNED' | 'CHAT_MENTION';
 
 export interface AppNotification {
   id: number;

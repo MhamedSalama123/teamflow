@@ -107,8 +107,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private static Long parseProjectId(String raw) {
+        // The destination may carry a sub-topic (e.g. "123/chat"); the id is the leading segment.
+        int slash = raw.indexOf('/');
+        String idPart = slash < 0 ? raw : raw.substring(0, slash);
         try {
-            return Long.parseLong(raw);
+            return Long.parseLong(idPart);
         } catch (NumberFormatException e) {
             return null;
         }

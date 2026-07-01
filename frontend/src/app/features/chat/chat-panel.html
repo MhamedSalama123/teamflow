@@ -1,0 +1,123 @@
+<section class="flex h-[32rem] flex-col rounded-lg border border-slate-200 bg-white">
+  <header class="border-b border-slate-200 px-4 py-3">
+    <h2 class="text-sm font-semibold text-slate-700">Chat</h2>
+  </header>
+
+  @if (error()) {
+    <p class="bg-red-50 px-4 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+  }
+
+  <div #log class="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+    @for (message of messages(); track message.id) {
+      <article class="flex items-start gap-2">
+        @if (message.sender.photoUrl) {
+          <img [src]="message.sender.photoUrl" alt="" class="h-8 w-8 rounded-full object-cover" />
+        } @else {
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs text-slate-500"
+          >
+            {{ senderName(message)[0] }}
+          </span>
+        }
+        <div class="flex flex-col">
+          <div class="flex items-baseline gap-2">
+            <span class="text-sm font-medium text-slate-800">{{ senderName(message) }}</span>
+            <span class="text-xs text-slate-400">{{ message.createdAt | date: 'short' }}</span>
+          </div>
+          @if (message.content) {
+            <p class="text-sm whitespace-pre-wrap text-slate-700">{{ message.content }}</p>
+          }
+          @if (message.attachmentUrl) {
+            @if (isImage(message.attachmentUrl)) {
+              <a [href]="message.attachmentUrl" target="_blank" rel="noopener">
+                <img
+                  [src]="message.attachmentUrl"
+                  [alt]="message.attachmentName ?? 'attachment'"
+                  class="mt-1 max-h-48 rounded border border-slate-200"
+                />
+              </a>
+            } @else {
+              <a
+                [href]="message.attachmentUrl"
+                target="_blank"
+                rel="noopener"
+                class="mt-1 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+              >
+                📎 {{ message.attachmentName ?? 'Attachment' }}
+              </a>
+            }
+          }
+        </div>
+      </article>
+    } @empty {
+      <p class="text-sm text-slate-400">No messages yet. Say hello!</p>
+    }
+  </div>
+
+  <div class="relative border-t border-slate-200 p-3">
+    @if (mentionSuggestions().length > 0) {
+      <ul
+        class="absolute bottom-full left-3 mb-1 w-64 overflow-hidden rounded border border-slate-200 bg-white shadow-lg"
+      >
+        @for (member of mentionSuggestions(); track member.userId) {
+          <li>
+            <button
+              type="button"
+              (click)="selectMention(member)"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+            >
+              <span class="font-medium text-slate-800">{{ '@' + member.username }}</span>
+              @if (member.fullName) {
+                <span class="text-xs text-slate-500">{{ member.fullName }}</span>
+              }
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (pendingAttachment(); as attachment) {
+      <div
+        class="mb-2 flex items-center justify-between rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-600"
+      >
+        <span class="truncate">📎 {{ attachment.name }}</span>
+        <button
+          type="button"
+          (click)="clearAttachment()"
+          class="ml-2 text-slate-400 hover:text-red-600"
+          aria-label="Remove attachment"
+        >
+          ✕
+        </button>
+      </div>
+    }
+
+    <div class="flex items-end gap-2">
+      <label
+        class="cursor-pointer rounded border border-slate-300 px-3 py-2 text-slate-500 hover:bg-slate-50"
+        [class.opacity-50]="uploading()"
+        aria-label="Attach a file"
+      >
+        📎
+        <input type="file" class="hidden" (change)="onFileSelected($event)" [disabled]="uploading()" />
+      </label>
+      <textarea
+        #box
+        rows="1"
+        [value]="draft()"
+        (input)="onInput($event)"
+        (keydown.enter)="onEnter($event)"
+        placeholder="Write a message… use @ to mention a teammate"
+        class="flex-1 resize-none rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      ></textarea>
+      <button
+        type="button"
+        (click)="send()"
+        [disabled]="uploading()"
+        class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+      >
+        Send
+      </button>
+    </div>
+  </div>
+</section>

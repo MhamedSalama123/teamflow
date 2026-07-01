@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Projects } from './projects';
+import { ChatService } from '../../core/chat/chat.service';
 import { ProjectService } from '../../core/project/project.service';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
@@ -81,7 +82,8 @@ describe('Projects', () => {
   };
   let workspaceStub: { myWorkspaces: Fn; detail: Fn };
   let realtimeEvents: Subject<TaskEvent>;
-  let realtimeStub: { watchProject: Fn };
+  let realtimeStub: { watchProject: Fn; watchProjectChat: Fn };
+  let chatStub: { history: Fn; sendMessage: Fn; uploadAttachment: Fn };
 
   function setup() {
     TestBed.configureTestingModule({
@@ -90,6 +92,7 @@ describe('Projects', () => {
         { provide: ProjectService, useValue: projectStub },
         { provide: WorkspaceService, useValue: workspaceStub },
         { provide: RealtimeService, useValue: realtimeStub },
+        { provide: ChatService, useValue: chatStub },
       ],
     });
     const fixture = TestBed.createComponent(Projects);
@@ -99,7 +102,17 @@ describe('Projects', () => {
 
   beforeEach(() => {
     realtimeEvents = new Subject<TaskEvent>();
-    realtimeStub = { watchProject: vi.fn(() => realtimeEvents.asObservable()) };
+    realtimeStub = {
+      watchProject: vi.fn(() => realtimeEvents.asObservable()),
+      watchProjectChat: vi.fn(() => new Subject().asObservable()),
+    };
+    chatStub = {
+      history: vi.fn(() =>
+        of({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+      sendMessage: vi.fn(() => of(undefined)),
+      uploadAttachment: vi.fn(() => of(undefined)),
+    };
     projectStub = {
       listProjects: vi.fn(() => of(PROJECTS)),
       createProject: vi.fn(() => of(PROJECTS[0])),

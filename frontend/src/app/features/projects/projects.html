@@ -278,6 +278,9 @@
           </div>
         }
       </div>
+
+      <!-- Project chat -->
+      <app-chat-panel [projectId]="selectedProjectId()!" [members]="members()" />
     } @else {
       <p class="text-slate-600">Select or create a project to open its board.</p>
     }

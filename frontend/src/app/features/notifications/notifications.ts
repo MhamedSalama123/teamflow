@@ -31,6 +31,13 @@ export class Notifications implements OnInit {
   }
 
   protected icon(type: NotificationType): string {
-    return type === 'TASK_ASSIGNED' ? '✓' : '✉';
+    switch (type) {
+      case 'TASK_ASSIGNED':
+        return '✓';
+      case 'CHAT_MENTION':
+        return '@';
+      default:
+        return '✉';
+    }
   }
 }
