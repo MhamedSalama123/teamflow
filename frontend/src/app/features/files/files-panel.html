@@ -1,0 +1,84 @@
+<section class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4">
+  <h2 class="text-sm font-semibold text-slate-700">Files</h2>
+
+  @if (error()) {
+    <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+  }
+
+  <!-- Drag & drop upload zone -->
+  <label
+    class="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-center text-sm transition-colors"
+    [class.border-blue-500]="dragOver()"
+    [class.bg-blue-50]="dragOver()"
+    [class.border-slate-300]="!dragOver()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <span class="text-2xl">⬆️</span>
+    @if (uploading()) {
+      <span class="text-slate-500">Uploading…</span>
+    } @else {
+      <span class="text-slate-600">
+        <span class="font-medium text-blue-600">Click to upload</span> or drag &amp; drop
+      </span>
+      <span class="text-xs text-slate-400">Up to 10 MB per file</span>
+    }
+    <input type="file" multiple class="hidden" (change)="onFileInput($event)" [disabled]="uploading()" />
+  </label>
+
+  <!-- File list -->
+  <ul class="flex flex-col divide-y divide-slate-100">
+    @for (file of files(); track file.id) {
+      <li class="flex items-center gap-3 py-2">
+        <span class="flex-1 truncate">
+          <span class="font-medium text-slate-800">{{ file.name }}</span>
+          <span class="ml-2 text-xs text-slate-400">
+            {{ formatSize(file.size) }} · {{ uploaderName(file) }} ·
+            {{ file.createdAt | date: 'short' }}
+          </span>
+        </span>
+        @if (file.previewable) {
+          <button
+            type="button"
+            (click)="openPreview(file)"
+            class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            Preview
+          </button>
+        }
+        <button
+          type="button"
+          (click)="download(file)"
+          class="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+        >
+          Download
+        </button>
+      </li>
+    } @empty {
+      <li class="py-4 text-center text-sm text-slate-400">No files uploaded yet.</li>
+    }
+  </ul>
+
+  <!-- Inline preview -->
+  @if (preview(); as p) {
+    <div class="rounded-lg border border-slate-200">
+      <div class="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+        <span class="truncate text-sm font-medium text-slate-700">{{ p.name }}</span>
+        <button
+          type="button"
+          (click)="closePreview()"
+          class="text-slate-400 hover:text-red-600"
+          aria-label="Close preview"
+        >
+          ✕
+        </button>
+      </div>
+      @if (p.kind === 'image') {
+        <img [src]="p.url" [alt]="p.name" class="max-h-[32rem] w-full object-contain" />
+      } @else {
+        <iframe [src]="p.safeUrl" [title]="p.name" class="h-[32rem] w-full"></iframe>
+      }
+    </div>
+  }
+</section>

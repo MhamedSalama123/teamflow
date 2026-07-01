@@ -3,6 +3,7 @@ import { Subject, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Projects } from './projects';
 import { ChatService } from '../../core/chat/chat.service';
+import { FileService } from '../../core/file/file.service';
 import { ProjectService } from '../../core/project/project.service';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
@@ -84,6 +85,7 @@ describe('Projects', () => {
   let realtimeEvents: Subject<TaskEvent>;
   let realtimeStub: { watchProject: Fn; watchProjectChat: Fn };
   let chatStub: { history: Fn; sendMessage: Fn; uploadAttachment: Fn };
+  let fileStub: { list: Fn; upload: Fn; download: Fn; preview: Fn };
 
   function setup() {
     TestBed.configureTestingModule({
@@ -93,6 +95,7 @@ describe('Projects', () => {
         { provide: WorkspaceService, useValue: workspaceStub },
         { provide: RealtimeService, useValue: realtimeStub },
         { provide: ChatService, useValue: chatStub },
+        { provide: FileService, useValue: fileStub },
       ],
     });
     const fixture = TestBed.createComponent(Projects);
@@ -112,6 +115,12 @@ describe('Projects', () => {
       ),
       sendMessage: vi.fn(() => of(undefined)),
       uploadAttachment: vi.fn(() => of(undefined)),
+    };
+    fileStub = {
+      list: vi.fn(() => of([])),
+      upload: vi.fn(() => of(undefined)),
+      download: vi.fn(() => of(new Blob())),
+      preview: vi.fn(() => of(new Blob())),
     };
     projectStub = {
       listProjects: vi.fn(() => of(PROJECTS)),

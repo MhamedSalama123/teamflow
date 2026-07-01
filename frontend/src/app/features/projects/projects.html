@@ -279,6 +279,9 @@
         }
       </div>
 
+      <!-- Project files -->
+      <app-files-panel [projectId]="selectedProjectId()!" />
+
       <!-- Project chat -->
       <app-chat-panel [projectId]="selectedProjectId()!" [members]="members()" />
     } @else {

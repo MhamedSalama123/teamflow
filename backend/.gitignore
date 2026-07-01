@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Runtime file storage (uploaded content lives on disk, not in git) ###
+uploads/
+filestore/
