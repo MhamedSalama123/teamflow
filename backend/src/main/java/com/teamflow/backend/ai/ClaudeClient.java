@@ -26,10 +26,12 @@ public class ClaudeClient {
             @Value("${anthropic.model:claude-sonnet-4-6}") String model,
             @Value("${anthropic.timeout-seconds:60}") long timeoutSeconds) {
         // A bounded timeout (well below the SDK's 10-minute default) so a bad key or unreachable API
-        // fails fast into a 503 instead of leaving the request — and the UI — hanging.
+        // fails fast into a 503 instead of leaving the request — and the UI — hanging. Retries are
+        // disabled so worst-case wall-clock is a single timeout, not timeout × (retries + 1).
         this.client = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
                 .timeout(Duration.ofSeconds(timeoutSeconds))
+                .maxRetries(0)
                 .build();
         this.model = model;
     }
