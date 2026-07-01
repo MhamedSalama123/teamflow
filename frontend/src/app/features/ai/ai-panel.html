@@ -1,0 +1,114 @@
+<section class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4">
+  <h2 class="text-sm font-semibold text-slate-700">AI Assistant</h2>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 border-b border-slate-200">
+    @for (t of tabs; track t.id) {
+      <button
+        type="button"
+        (click)="selectTab(t.id)"
+        class="-mb-px border-b-2 px-3 py-1.5 text-sm font-medium"
+        [class.border-blue-600]="tab() === t.id"
+        [class.text-blue-600]="tab() === t.id"
+        [class.border-transparent]="tab() !== t.id"
+        [class.text-slate-500]="tab() !== t.id"
+      >
+        {{ t.label }}
+      </button>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error() }}</p>
+  }
+
+  <!-- Summarize -->
+  @if (tab() === 'summarize') {
+    <div class="flex flex-col gap-3">
+      <button
+        type="button"
+        (click)="summarize()"
+        [disabled]="summarizing()"
+        class="self-start rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+      >
+        {{ summarizing() ? 'Summarizing…' : 'Summarize chat' }}
+      </button>
+      @if (summary()) {
+        <p class="rounded bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-slate-700">
+          {{ summary() }}
+        </p>
+      }
+    </div>
+  }
+
+  <!-- Generate tasks -->
+  @if (tab() === 'generate') {
+    <div class="flex flex-col gap-3">
+      <textarea
+        rows="3"
+        [value]="description()"
+        (input)="onInput($event, 'description')"
+        placeholder="Describe the work, e.g. 'Build a marketing landing page with a hero, pricing, and contact form.'"
+        class="rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      ></textarea>
+      <button
+        type="button"
+        (click)="generate()"
+        [disabled]="generating()"
+        class="self-start rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+      >
+        {{ generating() ? 'Generating…' : 'Generate tasks' }}
+      </button>
+
+      <ul class="flex flex-col divide-y divide-slate-100">
+        @for (task of generatedTasks(); track $index) {
+          <li class="flex items-center gap-3 py-2">
+            <span class="flex-1">
+              <span class="text-sm font-medium text-slate-800">{{ task.title }}</span>
+              <span class="ml-2 text-xs text-slate-400">
+                {{ task.priority }}@if (task.dueDate) { · due {{ task.dueDate }} }
+              </span>
+            </span>
+            @if (addedTasks().has($index)) {
+              <span class="text-xs font-medium text-green-600">Added ✓</span>
+            } @else {
+              <button
+                type="button"
+                (click)="addToBoard(task, $index)"
+                class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                Add to board
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
+  <!-- Ask -->
+  @if (tab() === 'ask') {
+    <div class="flex flex-col gap-3">
+      <textarea
+        rows="2"
+        [value]="question()"
+        (input)="onInput($event, 'question')"
+        placeholder="Ask anything about this project…"
+        class="rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      ></textarea>
+      <button
+        type="button"
+        (click)="ask()"
+        [disabled]="asking()"
+        class="self-start rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+      >
+        {{ asking() ? 'Thinking…' : 'Ask' }}
+      </button>
+      @if (answer()) {
+        <p class="rounded bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-slate-700">
+          {{ answer() }}
+        </p>
+      }
+    </div>
+  }
+</section>

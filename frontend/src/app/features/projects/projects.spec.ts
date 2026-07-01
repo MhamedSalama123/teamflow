@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Projects } from './projects';
+import { AiService } from '../../core/ai/ai.service';
 import { ChatService } from '../../core/chat/chat.service';
 import { FileService } from '../../core/file/file.service';
 import { ProjectService } from '../../core/project/project.service';
@@ -86,6 +87,7 @@ describe('Projects', () => {
   let realtimeStub: { watchProject: Fn; watchProjectChat: Fn };
   let chatStub: { history: Fn; sendMessage: Fn; uploadAttachment: Fn };
   let fileStub: { list: Fn; upload: Fn; download: Fn; preview: Fn };
+  let aiStub: { summarize: Fn; generateTasks: Fn; ask: Fn };
 
   function setup() {
     TestBed.configureTestingModule({
@@ -96,6 +98,7 @@ describe('Projects', () => {
         { provide: RealtimeService, useValue: realtimeStub },
         { provide: ChatService, useValue: chatStub },
         { provide: FileService, useValue: fileStub },
+        { provide: AiService, useValue: aiStub },
       ],
     });
     const fixture = TestBed.createComponent(Projects);
@@ -121,6 +124,11 @@ describe('Projects', () => {
       upload: vi.fn(() => of(undefined)),
       download: vi.fn(() => of(new Blob())),
       preview: vi.fn(() => of(new Blob())),
+    };
+    aiStub = {
+      summarize: vi.fn(() => of({ summary: '' })),
+      generateTasks: vi.fn(() => of({ tasks: [] })),
+      ask: vi.fn(() => of({ answer: '' })),
     };
     projectStub = {
       listProjects: vi.fn(() => of(PROJECTS)),

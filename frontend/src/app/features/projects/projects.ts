@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ProjectService } from '../../core/project/project.service';
 import { Project, Task, TaskPriority, TaskStatus } from '../../core/project/project.models';
+import { AiPanel } from '../ai/ai-panel';
 import { ChatPanel } from '../chat/chat-panel';
 import { FilesPanel } from '../files/files-panel';
 import { RealtimeService } from '../../core/realtime/realtime.service';
@@ -18,7 +19,7 @@ const MANAGED_ROLES: WorkspaceRole[] = ['OWNER', 'ADMIN'];
 
 @Component({
   selector: 'app-projects',
-  imports: [ReactiveFormsModule, ChatPanel, FilesPanel],
+  imports: [ReactiveFormsModule, ChatPanel, FilesPanel, AiPanel],
   templateUrl: './projects.html',
 })
 export class Projects implements OnInit, OnDestroy {
