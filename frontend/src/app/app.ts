@@ -17,11 +17,18 @@ export class App {
   private loaded = false;
 
   constructor() {
-    // Load notifications once the user is authenticated so the nav badge reflects the unread count.
+    // Once authenticated, load existing notifications and open the live stream so the nav badge
+    // reflects the unread count and updates in real time.
     effect(() => {
-      if (this.auth.isAuthenticated() && !this.loaded) {
-        this.loaded = true;
-        this.notificationService.load().subscribe({ error: () => {} });
+      if (this.auth.isAuthenticated()) {
+        if (!this.loaded) {
+          this.loaded = true;
+          this.notificationService.load().subscribe({ error: () => {} });
+          this.notificationService.startLiveUpdates();
+        }
+      } else if (this.loaded) {
+        this.loaded = false;
+        this.notificationService.stopLiveUpdates();
       }
     });
   }

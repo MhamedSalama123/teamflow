@@ -10,6 +10,7 @@ import com.teamflow.backend.project.TaskRepository;
 import com.teamflow.backend.security.EmailService;
 import com.teamflow.backend.user.UserRepository;
 import java.lang.reflect.Type;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -114,7 +115,61 @@ class WebSocketIT {
                 .isInstanceOf(java.util.concurrent.ExecutionException.class);
     }
 
+    @Test
+    void assigneeReceivesLiveNotification() throws Exception {
+        String owner = authenticate("wsowner@example.com");
+        long ws = createWorkspace(owner, "Acme");
+        String bob = joinWorkspace(owner, ws, "wsbob@example.com");
+        long project = createProject(owner, ws, "Website");
+        long task = createTask(owner, project, "Ship it");
+
+        StompSession session = connect(bob);
+        BlockingQueue<Map<String, Object>> notifications = new LinkedBlockingQueue<>();
+        session.subscribe("/user/queue/notifications", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return Map.class;
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public void handleFrame(StompHeaders headers, Object payload) {
+                notifications.add((Map<String, Object>) payload);
+            }
+        });
+        Thread.sleep(400);
+
+        rest.exchange(
+                url("/api/projects/" + project + "/tasks/" + task + "/assign"),
+                HttpMethod.PUT,
+                new HttpEntity<>(
+                        """
+                        {"assigneeId":%d}""".formatted(userId("wsbob@example.com")),
+                        jsonHeaders(owner)),
+                String.class);
+
+        Map<String, Object> notification = notifications.poll(5, TimeUnit.SECONDS);
+        assertThat(notification).isNotNull();
+        assertThat(notification.get("type")).isEqualTo("TASK_ASSIGNED");
+        assertThat((String) notification.get("message")).contains("Ship it");
+
+        session.disconnect();
+    }
+
     // --- helpers ---
+
+    private String joinWorkspace(String ownerToken, long workspaceId, String email) {
+        String token = authenticate(email);
+        post("/api/workspaces/" + workspaceId + "/invite",
+                """
+                {"email":"%s"}""".formatted(email), ownerToken);
+        post("/api/workspaces/" + workspaceId + "/invite/accept", "{}", token);
+        return token;
+    }
+
+    private long userId(String email) {
+        return userRepository.findByEmail(email).orElseThrow().getId();
+    }
 
     private StompSession connect(String token) throws Exception {
         StompHeaders connectHeaders = new StompHeaders();

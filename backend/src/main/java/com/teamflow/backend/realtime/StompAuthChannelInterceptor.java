@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final String PROJECT_TOPIC_PREFIX = "/topic/projects/";
+    private static final String USER_QUEUE_PREFIX = "/user/";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
@@ -72,21 +73,33 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
-        String destination = accessor.getDestination();
-        if (destination == null || !destination.startsWith(PROJECT_TOPIC_PREFIX)) {
-            // Only project topics are exposed to clients.
-            throw new MessagingException("Unknown subscription destination.");
-        }
         Principal user = accessor.getUser();
+        if (user == null) {
+            throw new MessagingException("Unauthorized subscription.");
+        }
+        String destination = accessor.getDestination();
+        if (destination == null) {
+            throw new MessagingException("Missing subscription destination.");
+        }
+        // Personal queues (e.g. /user/queue/notifications) are inherently scoped to the session user.
+        if (destination.startsWith(USER_QUEUE_PREFIX)) {
+            return;
+        }
+        if (destination.startsWith(PROJECT_TOPIC_PREFIX)) {
+            authorizeProjectSubscription(user, destination);
+            return;
+        }
+        throw new MessagingException("Unknown subscription destination.");
+    }
+
+    private void authorizeProjectSubscription(Principal user, String destination) {
         Long projectId = parseProjectId(destination.substring(PROJECT_TOPIC_PREFIX.length()));
         Long workspaceId = projectId == null
                 ? null
                 : projectRepository.findWorkspaceIdById(projectId).orElse(null);
-        Long userId = user == null
-                ? null
-                : userRepository.findByEmailAndDeletedAtIsNull(user.getName())
-                        .map(User::getId)
-                        .orElse(null);
+        Long userId = userRepository.findByEmailAndDeletedAtIsNull(user.getName())
+                .map(User::getId)
+                .orElse(null);
         if (workspaceId == null || userId == null
                 || !membershipService.isActiveMember(workspaceId, userId)) {
             throw new MessagingException("You cannot subscribe to this project.");

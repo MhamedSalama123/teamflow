@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Subject } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotificationService } from './notification.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { AppNotification } from './notification.models';
 
 const NOTIFICATIONS: AppNotification[] = [
@@ -27,10 +29,16 @@ const NOTIFICATIONS: AppNotification[] = [
 describe('NotificationService', () => {
   let service: NotificationService;
   let httpMock: HttpTestingController;
+  let liveEvents: Subject<AppNotification>;
 
   beforeEach(() => {
+    liveEvents = new Subject<AppNotification>();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: RealtimeService, useValue: { watchNotifications: vi.fn(() => liveEvents) } },
+      ],
     });
     service = TestBed.inject(NotificationService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -59,5 +67,23 @@ describe('NotificationService', () => {
 
     expect(service.unreadCount()).toBe(0);
     expect(service.notifications().find((n) => n.id === 1)?.read).toBe(true);
+  });
+
+  it('prepends live-pushed notifications', () => {
+    service.load().subscribe();
+    httpMock.expectOne('/api/notifications/me').flush(NOTIFICATIONS);
+    service.startLiveUpdates();
+
+    liveEvents.next({
+      id: 9,
+      type: 'TASK_ASSIGNED',
+      message: 'New task for you.',
+      workspaceId: 2,
+      read: false,
+      createdAt: '2026-07-02T00:00:00Z',
+    });
+
+    expect(service.notifications()[0].id).toBe(9);
+    expect(service.unreadCount()).toBe(2);
   });
 });

@@ -14,18 +14,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final NotificationPublisher notificationPublisher;
     private final UserRepository userRepository;
 
-    /** Persists an in-app notification for {@code recipient}. */
+    /** Persists an in-app notification for {@code recipient} and pushes it to them live. */
     @Transactional
     public void notify(User recipient, NotificationType type, String message, Long workspaceId) {
-        notificationRepository.save(Notification.builder()
+        Notification saved = notificationRepository.save(Notification.builder()
                 .user(recipient)
                 .type(type)
                 .message(message)
                 .workspaceId(workspaceId)
                 .read(false)
                 .build());
+        notificationPublisher.publish(recipient.getEmail(), NotificationResponse.from(saved));
     }
 
     @Transactional(readOnly = true)
