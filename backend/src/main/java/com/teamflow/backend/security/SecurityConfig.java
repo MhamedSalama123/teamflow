@@ -28,10 +28,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // The STOMP handshake authenticates per-connection via the CONNECT frame
                         // (see StompAuthChannelInterceptor), so the HTTP upgrade itself is permitted.
-                        // "/error" must be permitted too: an exception (@ResponseStatus, validation,
-                        // etc.) triggers a container ERROR dispatch to /error on which the JWT filter
-                        // does not run, so without this every error would be masked as a 401.
-                        .requestMatchers("/api/auth/**", "/uploads/**", "/ws/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/uploads/**", "/ws/**").permitAll()
                         .anyRequest().authenticated())
                 // Return 401 (not the servlet default 403) when a request is unauthenticated, which is
                 // the correct status for a missing/invalid bearer token on this stateless JSON API.

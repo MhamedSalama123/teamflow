@@ -56,4 +56,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
+    /**
+     * Also run on the container's ERROR dispatch. An exception ({@code @ResponseStatus}, bean
+     * validation, an AI 503, ...) triggers a dispatch to {@code /error}, which is authenticated like
+     * any other request; without re-reading the Bearer token here the error page would be anonymous
+     * and every error response would be masked as a 401.
+     */
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
+    }
 }
