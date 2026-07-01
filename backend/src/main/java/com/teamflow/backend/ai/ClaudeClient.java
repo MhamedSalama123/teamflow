@@ -5,6 +5,7 @@ import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.TextBlock;
+import java.time.Duration;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -22,8 +23,14 @@ public class ClaudeClient {
 
     public ClaudeClient(
             @Value("${anthropic.api-key:anthropic-api-key}") String apiKey,
-            @Value("${anthropic.model:claude-sonnet-4-6}") String model) {
-        this.client = AnthropicOkHttpClient.builder().apiKey(apiKey).build();
+            @Value("${anthropic.model:claude-sonnet-4-6}") String model,
+            @Value("${anthropic.timeout-seconds:60}") long timeoutSeconds) {
+        // A bounded timeout (well below the SDK's 10-minute default) so a bad key or unreachable API
+        // fails fast into a 503 instead of leaving the request — and the UI — hanging.
+        this.client = AnthropicOkHttpClient.builder()
+                .apiKey(apiKey)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .build();
         this.model = model;
     }
 
